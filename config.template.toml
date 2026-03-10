@@ -37,3 +37,28 @@ full_name = "Test User - Secondary Schwab" # Example of overriding a general set
 
 # [brokers.another_bank.accounts.main_chf]
 # account_number = "CH1234500000000000000"
+
+# Trading212 Broker Settings
+# Three modes are supported (detected automatically from input_file and api_key):
+#   - CSV mode:    input_file is a CSV export, no api_key set
+#                  (opensteuerauszug transactions.csv --importer trading212 ...)
+#   - Hybrid mode: input_file is a CSV export AND api_key is set  ← recommended
+#                  CSV provides WHT + FX rates; API provides position anchors + instrument types
+#   - API mode:    input_file is any directory, api_key is required
+#                  (opensteuerauszug . --importer trading212 ...)
+
+# [brokers.trading212]
+# Broker-level overrides (optional, e.g. language = "en")
+
+# [brokers.trading212.accounts.my_t212]
+# account_number = "T212-123456"   # Your T212 account number (shown in the app) / <customerID>-<investAccountID>
+# account_currency = "CHF"         # Account base currency (e.g. EUR, GBP, CHF)
+# country = "GB"                   # Fallback issuer country for securities without ISIN
+# ignore_crypto = true             # Skip CRYPTO instruments
+# Hybrid / API mode – set api_key to enable; leave commented out for CSV-only mode:
+# api_key = "your_trading212_api_key_here"
+# api_secret = "your_api_secret_here"  # Only for new key-pair auth; omit for legacy single-key
+# Per-currency cash closing balances at period end (Dec 31) – used in CSV and hybrid mode.
+# Required for the BankAccount taxValue (Vermögenssteuerwert) in the tax statement.
+# Interest on cash and share lending income are parsed automatically from the CSV export.
+# cash_balances = { CHF = 5000.00, USD = 100.00 }

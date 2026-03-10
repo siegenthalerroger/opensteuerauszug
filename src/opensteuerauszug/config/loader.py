@@ -15,6 +15,8 @@ from .models import (
     BrokerSettings,
     AccountSettingsBase,
     SchwabAccountSettings,
+    IbkrAccountSettings,
+    Trading212AccountSettings,
     ConcreteAccountSettings,
     SpecificAccountSettingsUnion,
     CalculateSettings,
@@ -178,30 +180,17 @@ class ConfigManager:
         if broker_name.lower() == "schwab":
             specific_settings = SchwabAccountSettings(**current_config)
             kind_literal = "schwab"
-        # Example for future expansion:
-        # elif broker_name.lower() == "ubs":
-        #     specific_settings = UBSAccountSettings(**current_config)
-        #     kind_literal = "ubs"
+        elif broker_name.lower() == "ibkr":
+            specific_settings = IbkrAccountSettings(**current_config)
+            kind_literal = "ibkr"
+        elif broker_name.lower() == "trading212":
+            specific_settings = Trading212AccountSettings(**current_config)
+            kind_literal = "trading212"
         else:
-            # Fallback or error if broker type is unknown/unsupported for specific models
-            # For now, we can try to use AccountSettingsBase if no specific model matches,
-            # but this might not be ideal if specific fields are expected later.
-            # A stricter approach would be to raise an error.
-            logger.warning(
-                "No specific Pydantic model defined for broker '%s'. Using AccountSettingsBase. Some broker-specific features might not be available.",
-                broker_name,
+            raise ValueError(
+                f"Unsupported broker type for specific settings: '{broker_name}'. "
+                "Supported types: 'schwab', 'ibkr', 'trading212'."
             )
-            # This will fail if AccountSettingsBase itself is not meant to be instantiated directly
-            # or if current_config has fields not allowed by AccountSettingsBase.
-            # Given the current setup, SchwabAccountSettings is derived from AccountSettingsBase
-            # and doesn't add new fields, so this path is less likely to be hit for "schwab".
-            # If we had a distinct model, we'd use:
-            #   specific_settings = AccountSettingsBase(**current_config)
-            #   kind_literal = "base" # Or some other generic literal
-            # However, since ConcreteAccountSettings expects a kind from a Literal set,
-            # we must handle unknown brokers more gracefully or restrict them.
-            # For now, let's assume "schwab" is the only configured one.
-            raise ValueError(f"Unsupported broker type for specific settings: {broker_name}. Only 'schwab' is currently configured with a specific model.")
 
         try:
             # Wrap in ConcreteAccountSettings

@@ -1,3 +1,4 @@
+from decimal import Decimal
 from typing import Dict, Any, Union, Literal, Optional
 from pydantic import BaseModel, Field, ConfigDict
 
@@ -40,6 +41,53 @@ class SchwabAccountSettings(AccountSettingsBase):
     # schwab_specific_option: bool = True
     pass
 
+class Trading212AccountSettings(AccountSettingsBase):
+    """Configuration for a Trading212 account."""
+    api_key: Optional[str] = Field(
+        default=None,
+        description=(
+            "Trading212 API key for live API mode. "
+            "Leave unset to use CSV file mode instead."
+        ),
+    )
+    api_secret: Optional[str] = Field(
+        default=None,
+        description=(
+            "Trading212 API secret (only required for new key-pair auth). "
+            "When set, HTTP Basic auth is used (api_key:api_secret). "
+            "When absent, the legacy single-key Authorization header is used."
+        ),
+    )
+    account_currency: str = Field(
+        default="EUR",
+        description="Account base currency (e.g., 'EUR', 'GBP', 'USD').",
+    )
+    country: str = Field(
+        default="GB",
+        description="Two-letter ISO country code assigned to securities when not determined otherwise.",
+    )
+    ignore_crypto: bool = Field(
+        default=True,
+        description="Skip CRYPTO instruments when building the tax statement.",
+    )
+    cash_balances: Optional[Dict[str, Decimal]] = Field(
+        default=None,
+        description=(
+            "Per-currency cash closing balances at period end. "
+            "Example: {CHF = 5000.00, USD = 100.00}. "
+            "Used for the BankAccount taxValue in the tax statement."
+        ),
+    )
+    api_max_retries: int = Field(
+        default=3,
+        description=(
+            "Maximum number of retries on HTTP 429 Too Many Requests responses. "
+            "Each retry waits for the Retry-After header value, or falls back to "
+            "exponential backoff (2^attempt seconds + jitter). Set to 0 to disable retries."
+        ),
+    )
+
+
 class IbkrAccountSettings(AccountSettingsBase):
     """
     Settings for a single Interactive Brokers account.
@@ -73,16 +121,16 @@ class CalculateSettings(BaseModel):
     keep_existing_payments: bool = Field(default=False, description="If True, keep existing payments when calculating tax values.")
 
 # A type union for all possible specific account settings models
-SpecificAccountSettingsUnion = Union[SchwabAccountSettings, IbkrAccountSettings] # Add other types like UBSAccountSettings here
+SpecificAccountSettingsUnion = Union[SchwabAccountSettings, IbkrAccountSettings, Trading212AccountSettings]
 
 class ConcreteAccountSettings(BaseModel):
     '''
     A wrapper model that holds the actual specific account settings.
     This is what the ConfigManager.get_account_settings will return.
     The 'settings' field will contain an instance of SchwabAccountSettings,
-    or other specific types in the future.
+    IbkrAccountSettings, Trading212AccountSettings, or other specific types.
     '''
-    kind: Literal["schwab", "ibkr"] # Add other literals like "ubs" when more types are supported
+    kind: Literal["schwab", "ibkr", "trading212"]
     settings: SpecificAccountSettingsUnion
     
     # Delegate attribute access to the underlying specific settings model
@@ -101,8 +149,3 @@ class ConcreteAccountSettings(BaseModel):
 # resolved_data = {"canton": "ZH", ..., "broker_name": "schwab", ...}
 # schwab_settings = SchwabAccountSettings(**resolved_data)
 # concrete_settings = ConcreteAccountSettings(kind="schwab", settings=schwab_settings)
-
-
-
-    # Ensure this model is added to the ImporterSettings union type if that's how specific settings are handled.
-    # For now, assuming it will be directly used by the CLI or main application.
