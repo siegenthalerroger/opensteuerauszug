@@ -1,4 +1,5 @@
 """Tests for T212ApiClient: auth, pagination, get_orders, get_instruments, retry."""
+
 import time
 from datetime import date
 from decimal import Decimal
@@ -10,10 +11,10 @@ import requests
 from opensteuerauszug.importers.trading212.api_client import RateLimiter, T212ApiClient
 from opensteuerauszug.importers.trading212._models import parse_t212_date
 
-
 # ---------------------------------------------------------------------------
 # RateLimiter
 # ---------------------------------------------------------------------------
+
 
 class TestRateLimiter:
     def test_does_not_sleep_within_limit(self):
@@ -39,6 +40,7 @@ class TestRateLimiter:
 # Pagination
 # ---------------------------------------------------------------------------
 
+
 class TestApiClientPagination:
     def test_pagination_iterates_until_null(self):
         client = T212ApiClient.__new__(T212ApiClient)
@@ -46,7 +48,10 @@ class TestApiClientPagination:
         client._max_retries = 0
         client._history_limiter = RateLimiter(max_calls=100, period_seconds=1.0)
 
-        page1 = {"items": [{"id": 1}, {"id": 2}], "nextPagePath": "/api/v0/equity/history/orders?cursor=2"}
+        page1 = {
+            "items": [{"id": 1}, {"id": 2}],
+            "nextPagePath": "/api/v0/equity/history/orders?cursor=2",
+        }
         page2 = {"items": [{"id": 3}], "nextPagePath": None}
 
         client._session.get.return_value.json.side_effect = [page1, page2]
@@ -163,6 +168,7 @@ class TestPaginateStopBefore:
 # Authentication
 # ---------------------------------------------------------------------------
 
+
 class TestApiClientAuth:
     def test_legacy_auth_sets_authorization_header(self):
         """Single api_key (no secret) should use legacy Authorization header."""
@@ -186,6 +192,7 @@ class TestApiClientAuth:
 # ---------------------------------------------------------------------------
 # get_orders: fill quantity sign handling
 # ---------------------------------------------------------------------------
+
 
 class TestApiClientGetOrders:
     """T212 API returns negative fill.quantity for SELL orders.
@@ -211,7 +218,12 @@ class TestApiClientGetOrders:
                 "side": side,
                 "ticker": "INTC_US_EQ",
                 "status": "FILLED",
-                "instrument": {"ticker": "INTC_US_EQ", "name": "Intel", "isin": "US4581401001", "currency": "USD"},
+                "instrument": {
+                    "ticker": "INTC_US_EQ",
+                    "name": "Intel",
+                    "isin": "US4581401001",
+                    "currency": "USD",
+                },
                 "createdAt": "2025-01-17T10:00:00+00:00",
             },
             "fill": {
@@ -242,16 +254,20 @@ class TestApiClientGetOrders:
     def test_sell_mutation_stock_has_negative_quantity(self):
         """End-to-end: SELL order from API with negative fill qty → negative SecurityStock."""
         from opensteuerauszug.importers.trading212._converters import _orders_to_mutation_stocks
+
         client = self._make_client_with_orders([self._filled_order_item("SELL", -100.0)])
         orders = client.get_orders()
         stocks = _orders_to_mutation_stocks(orders, "CHF")
         assert len(stocks) == 1
-        assert stocks[0].quantity == Decimal("-100"), "SELL mutation stock must have negative quantity"
+        assert stocks[0].quantity == Decimal(
+            "-100"
+        ), "SELL mutation stock must have negative quantity"
 
 
 # ---------------------------------------------------------------------------
 # get_instruments
 # ---------------------------------------------------------------------------
+
 
 class TestGetInstruments:
     def _make_client(self, response_data):
@@ -267,11 +283,13 @@ class TestGetInstruments:
         return client
 
     def test_returns_ticker_to_type_mapping(self):
-        client = self._make_client([
-            {"ticker": "AAPL_US_EQ", "type": "STOCK", "isin": "US0378331005"},
-            {"ticker": "VWCE_EQ", "type": "ETF", "isin": "IE00B3RBWM25"},
-            {"ticker": "BTC_EQ", "type": "CRYPTOCURRENCY"},
-        ])
+        client = self._make_client(
+            [
+                {"ticker": "AAPL_US_EQ", "type": "STOCK", "isin": "US0378331005"},
+                {"ticker": "VWCE_EQ", "type": "ETF", "isin": "IE00B3RBWM25"},
+                {"ticker": "BTC_EQ", "type": "CRYPTOCURRENCY"},
+            ]
+        )
         result = client.get_instruments()
         assert result == {
             "AAPL_US_EQ": "STOCK",
@@ -285,11 +303,13 @@ class TestGetInstruments:
         assert result == {}
 
     def test_skips_entries_without_ticker_or_type(self):
-        client = self._make_client([
-            {"ticker": "AAPL_US_EQ", "type": "STOCK"},
-            {"ticker": "", "type": "ETF"},          # missing ticker → skip
-            {"ticker": "XYZ", "type": ""},           # missing type → skip
-        ])
+        client = self._make_client(
+            [
+                {"ticker": "AAPL_US_EQ", "type": "STOCK"},
+                {"ticker": "", "type": "ETF"},  # missing ticker → skip
+                {"ticker": "XYZ", "type": ""},  # missing type → skip
+            ]
+        )
         result = client.get_instruments()
         assert result == {"AAPL_US_EQ": "STOCK"}
 
@@ -298,11 +318,14 @@ class TestGetInstruments:
 # 429 retry with exponential backoff
 # ---------------------------------------------------------------------------
 
+
 class TestRetryOn429:
     def _make_response(self, status_code, json_data=None, retry_after=None):
         resp = MagicMock()
         resp.status_code = status_code
-        resp.headers.get = lambda key, default=None: retry_after if key == "Retry-After" else default
+        resp.headers.get = lambda key, default=None: (
+            retry_after if key == "Retry-After" else default
+        )
         if json_data is not None:
             resp.json.return_value = json_data
         if status_code >= 400:
@@ -357,7 +380,7 @@ class TestRetryOn429:
         with pytest.raises(requests.HTTPError):
             client._get("/api/v0/equity/history/orders")
 
-        assert mock_sleep.call_count == 2       # slept after attempt 0 and 1
+        assert mock_sleep.call_count == 2  # slept after attempt 0 and 1
         assert client._session.get.call_count == 3  # attempt 0, 1, 2
 
     @patch("opensteuerauszug.importers.trading212.api_client.time.sleep")
@@ -405,6 +428,7 @@ class TestRetryOn429:
 # ---------------------------------------------------------------------------
 # get_orders: skip conditions
 # ---------------------------------------------------------------------------
+
 
 class TestGetOrdersSkipConditions:
     """Orders that don't meet the filter criteria should be silently skipped."""
@@ -523,6 +547,7 @@ class TestGetOrdersSkipConditions:
 # get_dividends: skip conditions and edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestGetDividendsSkipConditions:
     """Dividends that don't meet filter criteria should be silently skipped."""
 
@@ -594,6 +619,7 @@ class TestGetDividendsSkipConditions:
 # get_current_positions: response format handling
 # ---------------------------------------------------------------------------
 
+
 class TestGetCurrentPositions:
     """get_current_positions should handle both list and dict response formats."""
 
@@ -634,6 +660,7 @@ class TestGetCurrentPositions:
 # get_instruments_extended: ISIN-to-ticker mapping
 # ---------------------------------------------------------------------------
 
+
 class TestGetInstrumentsExtended:
     """get_instruments_extended returns both ticker→type and isin→ticker mappings."""
 
@@ -651,10 +678,12 @@ class TestGetInstrumentsExtended:
 
     def test_isin_to_ticker_mapping_returned(self):
         """The second return value should map ISIN → API ticker."""
-        client = self._make_client([
-            {"ticker": "AAPL_US_EQ", "type": "STOCK", "isin": "US0378331005"},
-            {"ticker": "VWCE_EQ", "type": "ETF", "isin": "IE00B3RBWM25"},
-        ])
+        client = self._make_client(
+            [
+                {"ticker": "AAPL_US_EQ", "type": "STOCK", "isin": "US0378331005"},
+                {"ticker": "VWCE_EQ", "type": "ETF", "isin": "IE00B3RBWM25"},
+            ]
+        )
         ticker_to_type, isin_to_ticker = client.get_instruments_extended()
         assert isin_to_ticker == {
             "US0378331005": "AAPL_US_EQ",
@@ -664,18 +693,20 @@ class TestGetInstrumentsExtended:
 
     def test_entries_without_isin_excluded_from_isin_map(self):
         """Instruments without ISIN should not appear in isin→ticker mapping."""
-        client = self._make_client([
-            {"ticker": "BTC_EQ", "type": "CRYPTOCURRENCY"},  # no ISIN
-        ])
+        client = self._make_client(
+            [
+                {"ticker": "BTC_EQ", "type": "CRYPTOCURRENCY"},  # no ISIN
+            ]
+        )
         ticker_to_type, isin_to_ticker = client.get_instruments_extended()
         assert ticker_to_type == {"BTC_EQ": "CRYPTOCURRENCY"}
         assert isin_to_ticker == {}
 
     def test_dict_response_format_handled(self):
         """get_instruments_extended should handle dict response with 'items' key."""
-        client = self._make_client({
-            "items": [{"ticker": "AAPL_US_EQ", "type": "STOCK", "isin": "US0378331005"}]
-        })
+        client = self._make_client(
+            {"items": [{"ticker": "AAPL_US_EQ", "type": "STOCK", "isin": "US0378331005"}]}
+        )
         ticker_to_type, isin_to_ticker = client.get_instruments_extended()
         assert ticker_to_type == {"AAPL_US_EQ": "STOCK"}
         assert isin_to_ticker == {"US0378331005": "AAPL_US_EQ"}

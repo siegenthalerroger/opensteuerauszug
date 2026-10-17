@@ -64,13 +64,14 @@ class SchwabAccountSettings(AccountSettingsBase):
     # schwab_specific_option: bool = True
     pass
 
+
 class Trading212AccountSettings(AccountSettingsBase):
     """Configuration for a Trading212 account."""
+
     api_key: Optional[str] = Field(
         default=None,
         description=(
-            "Trading212 API key for live API mode. "
-            "Leave unset to use CSV file mode instead."
+            "Trading212 API key for live API mode. Leave unset to use CSV file mode instead."
         ),
     )
     api_secret: Optional[str] = Field(

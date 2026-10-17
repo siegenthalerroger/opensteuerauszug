@@ -22,6 +22,7 @@ in the private directory, then run::
 The tests are skipped automatically if fewer than two files are found.
 Discovered files: determined at collection time by globbing the project root.
 """
+
 import logging
 import re
 from datetime import date
@@ -76,6 +77,7 @@ pytestmark = pytest.mark.skipif(
 # Helpers
 # ---------------------------------------------------------------------------
 
+
 def _load_all_orders_and_dividends():
     """Parse all discovered CSV files and return merged (orders, dividends) lists."""
     all_orders, all_dividends = [], []
@@ -83,7 +85,13 @@ def _load_all_orders_and_dividends():
     for year, csv_path in _CSV_FILES.items():
         parser = T212CsvParser(str(csv_path))
         orders, dividends, _ = parser.parse()
-        logger.info("  %d: %s — %d order(s), %d dividend(s)", year, csv_path.name, len(orders), len(dividends))
+        logger.info(
+            "  %d: %s — %d order(s), %d dividend(s)",
+            year,
+            csv_path.name,
+            len(orders),
+            len(dividends),
+        )
         all_orders.extend(orders)
         all_dividends.extend(dividends)
     logger.info("Merged total: %d order(s), %d dividend(s)", len(all_orders), len(all_dividends))
@@ -100,9 +108,7 @@ def _run_year(all_orders, all_dividends, year: int) -> TaxStatement:
     )
     # CSV mode (current_positions=None): uses assume_zero + forward synthesis.
     # This is accurate when all_orders covers the full account history.
-    return importer._build_tax_statement(
-        all_orders, all_dividends, current_positions=None
-    )
+    return importer._build_tax_statement(all_orders, all_dividends, current_positions=None)
 
 
 def _balance_by_ticker(stmt: TaxStatement, balance_name: str) -> Dict[str, Decimal]:
@@ -113,8 +119,7 @@ def _balance_by_ticker(stmt: TaxStatement, balance_name: str) -> Dict[str, Decim
     for depot in stmt.listOfSecurities.depot:
         for sec in depot.security:
             matches = [
-                s for s in sec.stock
-                if not s.mutation and (s.name or "").startswith(balance_name)
+                s for s in sec.stock if not s.mutation and (s.name or "").startswith(balance_name)
             ]
             if matches:
                 result[sec.symbol] = matches[0].quantity
@@ -153,9 +158,7 @@ def _mutation_detail(all_orders, ticker: str, before_date: date) -> str:
     for o in relevant:
         delta = o.quantity if o.side == "BUY" else -o.quantity
         running += delta
-        lines.append(
-            f"    {o.filled_at}  {o.side:4s}  {delta:+.6f}  running={running:.6f}"
-        )
+        lines.append(f"    {o.filled_at}  {o.side:4s}  {delta:+.6f}  running={running:.6f}")
     total_buys = sum(o.quantity for o in relevant if o.side == "BUY")
     total_sells = sum(o.quantity for o in relevant if o.side != "BUY")
     lines.append(
@@ -184,16 +187,14 @@ def _check_transition(
 
     assert not discrepancies, (
         f"Closing {year_from} ≠ Opening {year_to} for {len(discrepancies)} ticker(s):\n"
-        + "\n".join(
-            f"  {t}: closing={c}, opening={o}"
-            for t, (c, o) in discrepancies.items()
-        )
+        + "\n".join(f"  {t}: closing={c}, opening={o}" for t, (c, o) in discrepancies.items())
     )
 
 
 # ---------------------------------------------------------------------------
 # Tests
 # ---------------------------------------------------------------------------
+
 
 class TestCrossYearBalanceConsistency:
     """Closing balance of year N must equal opening balance of year N+1.
@@ -214,10 +215,7 @@ class TestCrossYearBalanceConsistency:
     @pytest.fixture(scope="class")
     def statements(self, merged_data):
         all_orders, all_dividends = merged_data
-        return {
-            year: _run_year(all_orders, all_dividends, year)
-            for year in _YEARS
-        }
+        return {year: _run_year(all_orders, all_dividends, year) for year in _YEARS}
 
     @pytest.mark.parametrize("year_from,year_to", _YEAR_PAIRS)
     def test_closing_equals_next_opening(self, statements, year_from, year_to):
@@ -260,15 +258,11 @@ class TestCrossYearBalanceConsistency:
                     for s in sec.stock:
                         if not s.mutation and s.quantity < 0:
                             ticker = sec.symbol
-                            net = _net_mutations_up_to(
-                                all_orders, ticker, s.referenceDate
-                            )
+                            net = _net_mutations_up_to(all_orders, ticker, s.referenceDate)
                             if net < 0:
                                 if ticker not in seen_gap_tickers:
                                     seen_gap_tickers.add(ticker)
-                                    detail = _mutation_detail(
-                                        all_orders, ticker, s.referenceDate
-                                    )
+                                    detail = _mutation_detail(all_orders, ticker, s.referenceDate)
                                     data_gaps.append(
                                         f"  {ticker}: first negative in {year} "
                                         f"{s.name} = {s.quantity} "
@@ -278,9 +272,7 @@ class TestCrossYearBalanceConsistency:
                             else:
                                 if ticker not in seen_bug_tickers:
                                     seen_bug_tickers.add(ticker)
-                                    detail = _mutation_detail(
-                                        all_orders, ticker, s.referenceDate
-                                    )
+                                    detail = _mutation_detail(all_orders, ticker, s.referenceDate)
                                     synthesis_bugs.append(
                                         f"  {ticker}: first negative in {year} "
                                         f"{s.name} = {s.quantity} "
@@ -298,6 +290,5 @@ class TestCrossYearBalanceConsistency:
                 f"{len(data_gaps)} ticker(s) with negative balance confirmed as data gaps — "
                 f"net mutations in the merged CSV are also negative, so BUY "
                 f"history predates the earliest export.  Supply a full-history "
-                f"CSV from account inception to resolve:\n"
-                + "\n".join(data_gaps)
+                f"CSV from account inception to resolve:\n" + "\n".join(data_gaps)
             )

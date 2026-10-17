@@ -1,4 +1,5 @@
 """Trading212 REST API client."""
+
 import logging
 import random
 import time
@@ -68,7 +69,9 @@ class T212ApiClient:
         # Instruments metadata endpoint: 1 req / 50 s
         self._instrument_limiter = RateLimiter(max_calls=1, period_seconds=50.0)
 
-    def _get(self, path: str, params: Optional[dict] = None, limiter: Optional[RateLimiter] = None) -> dict:
+    def _get(
+        self, path: str, params: Optional[dict] = None, limiter: Optional[RateLimiter] = None
+    ) -> dict:
         if limiter:
             limiter.wait()
         url = BASE_URL + path
@@ -77,12 +80,17 @@ class T212ApiClient:
             if resp.status_code == 429 and attempt < self._max_retries:
                 retry_after = resp.headers.get("Retry-After")
                 try:
-                    sleep_for = float(retry_after)
-                except (TypeError, ValueError):
-                    sleep_for = (2 ** attempt) + random.uniform(0, 1)
+                    sleep_for = float(retry_after) if retry_after is not None else None
+                except ValueError:
+                    sleep_for = None
+                if sleep_for is None:
+                    sleep_for = (2**attempt) + random.uniform(0, 1)
                 logger.warning(
                     "429 Too Many Requests for %s; retrying in %.1fs (attempt %d/%d)",
-                    path, sleep_for, attempt + 1, self._max_retries,
+                    path,
+                    sleep_for,
+                    attempt + 1,
+                    self._max_retries,
                 )
                 time.sleep(sleep_for)
                 continue
@@ -121,7 +129,8 @@ class T212ApiClient:
                     if oldest is not None and oldest < stop_before:
                         logger.debug(
                             "_paginate: oldest item (%s) before stop_before=%s, stopping.",
-                            oldest, stop_before,
+                            oldest,
+                            stop_before,
                         )
                         break
                 except Exception as exc:
@@ -170,9 +179,7 @@ class T212ApiClient:
         Rate limit: 1 req / 50 s.
         """
         logger.info("Fetching T212 instrument metadata...")
-        data = self._get(
-            "/api/v0/equity/metadata/instruments", limiter=self._instrument_limiter
-        )
+        data = self._get("/api/v0/equity/metadata/instruments", limiter=self._instrument_limiter)
         instruments = data if isinstance(data, list) else data.get("items", [])
         ticker_to_type: Dict[str, str] = {}
         isin_to_ticker: Dict[str, str] = {}
@@ -186,7 +193,8 @@ class T212ApiClient:
                 isin_to_ticker[isin] = ticker
         logger.info(
             "Retrieved %d instrument type entries and %d ISIN mappings from T212 API",
-            len(ticker_to_type), len(isin_to_ticker),
+            len(ticker_to_type),
+            len(isin_to_ticker),
         )
         return ticker_to_type, isin_to_ticker
 
@@ -236,19 +244,23 @@ class T212ApiClient:
                 fx_rate_raw = wallet.get("fxRate")
                 fx_rate = Decimal(str(fx_rate_raw)) if fx_rate_raw is not None else None
                 net_value_raw = wallet.get("netValue")
-                net_value = Decimal(str(net_value_raw)) if net_value_raw is not None else Decimal("0")
-                result.append(T212Order(
-                    filled_at=filled_at,
-                    side=side,
-                    ticker=ticker,
-                    name=instrument.get("name", ticker),
-                    isin=instrument.get("isin"),
-                    quantity=qty,
-                    price=price,
-                    currency=instrument.get("currency", ""),
-                    fx_rate=fx_rate,
-                    total_account_currency=net_value,
-                ))
+                net_value = (
+                    Decimal(str(net_value_raw)) if net_value_raw is not None else Decimal("0")
+                )
+                result.append(
+                    T212Order(
+                        filled_at=filled_at,
+                        side=side,
+                        ticker=ticker,
+                        name=instrument.get("name") or ticker,
+                        isin=instrument.get("isin"),
+                        quantity=qty,
+                        price=price,
+                        currency=instrument.get("currency", ""),
+                        fx_rate=fx_rate,
+                        total_account_currency=net_value,
+                    )
+                )
             except (ValueError, KeyError, TypeError, ArithmeticError) as exc:
                 logger.warning("Skipping order (ticker=%s): %s", ticker, exc)
         logger.info("Retrieved %d filled orders from T212 API", len(result))
@@ -284,20 +296,20 @@ class T212ApiClient:
                 amount = Decimal(str(amount_raw)) if amount_raw is not None else Decimal("0")
                 gross_raw = item.get("grossAmountPerShare")
                 gross = Decimal(str(gross_raw)) if gross_raw is not None else None
-                result.append(T212Dividend(
-                    paid_on=paid_on,
-                    ticker=ticker,
-                    name=instrument.get("name", ticker),
-                    isin=instrument.get("isin"),
-                    amount_account_currency=amount,
-                    gross_per_share=gross,
-                    withholding_tax=None,  # T212 dividend endpoint doesn't expose WHT
-                    instrument_currency=item.get("tickerCurrency", item.get("currency", "")),
-                    fx_rate=None,
-                ))
+                result.append(
+                    T212Dividend(
+                        paid_on=paid_on,
+                        ticker=ticker,
+                        name=instrument.get("name") or ticker,
+                        isin=instrument.get("isin"),
+                        amount_account_currency=amount,
+                        gross_per_share=gross,
+                        withholding_tax=None,  # T212 dividend endpoint doesn't expose WHT
+                        instrument_currency=item.get("tickerCurrency", item.get("currency", "")),
+                        fx_rate=None,
+                    )
+                )
             except (ValueError, KeyError, TypeError, ArithmeticError) as exc:
                 logger.warning("Skipping dividend (ticker=%s): %s", ticker, exc)
         logger.info("Retrieved %d dividends from T212 API", len(result))
         return result
-
-

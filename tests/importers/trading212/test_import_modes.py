@@ -1,9 +1,9 @@
 """Tests for Trading212Importer mode detection, CSV import, hybrid mode,
 crypto filtering, and ticker remapping.
 """
+
 from datetime import date
 from decimal import Decimal
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -14,10 +14,10 @@ from opensteuerauszug.importers.trading212.trading212_importer import Trading212
 
 from .conftest import make_dividend, make_order, make_settings, write_csv
 
-
 # ---------------------------------------------------------------------------
 # Mode detection
 # ---------------------------------------------------------------------------
+
 
 class TestModeDetection:
     def test_csv_mode_detected_for_file(self, tmp_path):
@@ -74,25 +74,41 @@ class TestModeDetection:
 # CSV import (end-to-end)
 # ---------------------------------------------------------------------------
 
+
 class TestCsvImport:
     def test_csv_import_produces_tax_statement(self, tmp_path):
         csv_path = tmp_path / "t212.csv"
-        write_csv(csv_path, [
-            {
-                "Action": "Market buy", "Time": "2024-03-15 10:00:00",
-                "ISIN": "US0378331005", "Ticker": "AAPL_US_EQ", "Name": "Apple Inc",
-                "No. of shares": "10", "Price / share": "150.00",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "1380.00", "Currency (Total)": "EUR",
-            },
-            {
-                "Action": "Dividend", "Time": "2024-05-16 00:00:00",
-                "ISIN": "US0378331005", "Ticker": "AAPL_US_EQ", "Name": "Apple Inc",
-                "No. of shares": "10", "Price / share": "0.25",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "2.30", "Currency (Total)": "EUR",
-            },
-        ])
+        write_csv(
+            csv_path,
+            [
+                {
+                    "Action": "Market buy",
+                    "Time": "2024-03-15 10:00:00",
+                    "ISIN": "US0378331005",
+                    "Ticker": "AAPL_US_EQ",
+                    "Name": "Apple Inc",
+                    "No. of shares": "10",
+                    "Price / share": "150.00",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "1380.00",
+                    "Currency (Total)": "EUR",
+                },
+                {
+                    "Action": "Dividend",
+                    "Time": "2024-05-16 00:00:00",
+                    "ISIN": "US0378331005",
+                    "Ticker": "AAPL_US_EQ",
+                    "Name": "Apple Inc",
+                    "No. of shares": "10",
+                    "Price / share": "0.25",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "2.30",
+                    "Currency (Total)": "EUR",
+                },
+            ],
+        )
         settings = make_settings()
         importer = Trading212Importer(
             period_from=date(2024, 1, 1),
@@ -111,15 +127,24 @@ class TestCsvImport:
 
     def test_csv_institution_name(self, tmp_path):
         csv_path = tmp_path / "t212.csv"
-        write_csv(csv_path, [
-            {
-                "Action": "Market buy", "Time": "2024-03-15 10:00:00",
-                "ISIN": "US0378331005", "Ticker": "AAPL_US_EQ", "Name": "Apple Inc",
-                "No. of shares": "5", "Price / share": "150.00",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "690.00", "Currency (Total)": "EUR",
-            },
-        ])
+        write_csv(
+            csv_path,
+            [
+                {
+                    "Action": "Market buy",
+                    "Time": "2024-03-15 10:00:00",
+                    "ISIN": "US0378331005",
+                    "Ticker": "AAPL_US_EQ",
+                    "Name": "Apple Inc",
+                    "No. of shares": "5",
+                    "Price / share": "150.00",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "690.00",
+                    "Currency (Total)": "EUR",
+                },
+            ],
+        )
         settings = make_settings()
         importer = Trading212Importer(
             period_from=date(2024, 1, 1),
@@ -135,6 +160,7 @@ class TestCsvImport:
 # Crypto filtering
 # ---------------------------------------------------------------------------
 
+
 class TestCryptoFiltering:
     def test_crypto_skipped_when_ignore_crypto_true(self, monkeypatch):
         """Crypto tickers should not appear in output when ignore_crypto=True."""
@@ -147,7 +173,12 @@ class TestCryptoFiltering:
         )
         monkeypatch.setattr(
             "opensteuerauszug.importers.trading212.trading212_importer._extract_instrument_info",
-            lambda ticker, orders, dividends, sec_type_override=None: (None, ticker, "CRYPTO", "USD"),
+            lambda ticker, orders, dividends, sec_type_override=None: (
+                None,
+                ticker,
+                "CRYPTO",
+                "USD",
+            ),
         )
         stmt = importer._build_tax_statement([order], [], current_positions=None)
 
@@ -164,7 +195,12 @@ class TestCryptoFiltering:
         )
         monkeypatch.setattr(
             "opensteuerauszug.importers.trading212.trading212_importer._extract_instrument_info",
-            lambda ticker, orders, dividends, sec_type_override=None: (None, ticker, "CRYPTO", "USD"),
+            lambda ticker, orders, dividends, sec_type_override=None: (
+                None,
+                ticker,
+                "CRYPTO",
+                "USD",
+            ),
         )
         stmt = importer._build_tax_statement([order], [], current_positions=None)
 
@@ -175,6 +211,7 @@ class TestCryptoFiltering:
 # ---------------------------------------------------------------------------
 # Hybrid mode (CSV + API)
 # ---------------------------------------------------------------------------
+
 
 class TestHybridMode:
     """Tests for the hybrid CSV+API mode."""
@@ -216,23 +253,39 @@ class TestHybridMode:
     def test_hybrid_preserves_csv_wht_and_fx(self, tmp_path):
         """Hybrid mode keeps withholding tax and FX rates from CSV dividends."""
         csv_file = tmp_path / "transactions.csv"
-        write_csv(csv_file, [
-            {
-                "Action": "Dividend", "Time": "2024-05-16 10:00:00",
-                "ISIN": "US0378331005", "Ticker": "AAPL_US_EQ", "Name": "Apple Inc",
-                "No. of shares": "10", "Price / share": "0.25",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "2.30", "Currency (Total)": "EUR",
-                "Withholding tax": "0.38", "Currency (Withholding tax)": "EUR",
-            },
-            {
-                "Action": "Market buy", "Time": "2024-03-15 10:00:00",
-                "ISIN": "US0378331005", "Ticker": "AAPL_US_EQ", "Name": "Apple Inc",
-                "No. of shares": "10", "Price / share": "150.00",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "1380.00", "Currency (Total)": "EUR",
-            },
-        ])
+        write_csv(
+            csv_file,
+            [
+                {
+                    "Action": "Dividend",
+                    "Time": "2024-05-16 10:00:00",
+                    "ISIN": "US0378331005",
+                    "Ticker": "AAPL_US_EQ",
+                    "Name": "Apple Inc",
+                    "No. of shares": "10",
+                    "Price / share": "0.25",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "2.30",
+                    "Currency (Total)": "EUR",
+                    "Withholding tax": "0.38",
+                    "Currency (Withholding tax)": "EUR",
+                },
+                {
+                    "Action": "Market buy",
+                    "Time": "2024-03-15 10:00:00",
+                    "ISIN": "US0378331005",
+                    "Ticker": "AAPL_US_EQ",
+                    "Name": "Apple Inc",
+                    "No. of shares": "10",
+                    "Price / share": "150.00",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "1380.00",
+                    "Currency (Total)": "EUR",
+                },
+            ],
+        )
 
         mock_client = MagicMock(spec=T212ApiClient)
         mock_client.get_instruments_extended.return_value = (
@@ -265,16 +318,24 @@ class TestHybridMode:
     def test_hybrid_uses_api_instrument_types(self, tmp_path):
         """Hybrid mode maps instrument types from the API, not defaulting to STOCK."""
         csv_file = tmp_path / "transactions.csv"
-        write_csv(csv_file, [
-            {
-                "Action": "Market buy", "Time": "2024-03-15 10:00:00",
-                "ISIN": "IE00B4L5Y983", "Ticker": "VWRL_EQ",
-                "Name": "Vanguard FTSE All-World",
-                "No. of shares": "5", "Price / share": "100.00",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "460.00", "Currency (Total)": "EUR",
-            },
-        ])
+        write_csv(
+            csv_file,
+            [
+                {
+                    "Action": "Market buy",
+                    "Time": "2024-03-15 10:00:00",
+                    "ISIN": "IE00B4L5Y983",
+                    "Ticker": "VWRL_EQ",
+                    "Name": "Vanguard FTSE All-World",
+                    "No. of shares": "5",
+                    "Price / share": "100.00",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "460.00",
+                    "Currency (Total)": "EUR",
+                },
+            ],
+        )
 
         mock_client = MagicMock(spec=T212ApiClient)
         mock_client.get_instruments_extended.return_value = (
@@ -304,15 +365,24 @@ class TestHybridMode:
     def test_hybrid_filters_crypto_via_api_types(self, tmp_path):
         """Hybrid mode filters crypto instruments using API instrument types."""
         csv_file = tmp_path / "transactions.csv"
-        write_csv(csv_file, [
-            {
-                "Action": "Market buy", "Time": "2024-03-15 10:00:00",
-                "ISIN": "CRYPTO123456", "Ticker": "BTC_CRYPTO", "Name": "Bitcoin",
-                "No. of shares": "1", "Price / share": "50000.00",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "46000.00", "Currency (Total)": "EUR",
-            },
-        ])
+        write_csv(
+            csv_file,
+            [
+                {
+                    "Action": "Market buy",
+                    "Time": "2024-03-15 10:00:00",
+                    "ISIN": "CRYPTO123456",
+                    "Ticker": "BTC_CRYPTO",
+                    "Name": "Bitcoin",
+                    "No. of shares": "1",
+                    "Price / share": "50000.00",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "46000.00",
+                    "Currency (Total)": "EUR",
+                },
+            ],
+        )
 
         mock_client = MagicMock(spec=T212ApiClient)
         mock_client.get_instruments_extended.return_value = (
@@ -339,15 +409,24 @@ class TestHybridMode:
     def test_hybrid_instruments_fetch_failure_falls_back(self, tmp_path):
         """Hybrid mode still works if get_instruments() raises; defaults to STOCK."""
         csv_file = tmp_path / "transactions.csv"
-        write_csv(csv_file, [
-            {
-                "Action": "Market buy", "Time": "2024-03-15 10:00:00",
-                "ISIN": "US0378331005", "Ticker": "AAPL_US_EQ", "Name": "Apple Inc",
-                "No. of shares": "10", "Price / share": "150.00",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "1380.00", "Currency (Total)": "EUR",
-            },
-        ])
+        write_csv(
+            csv_file,
+            [
+                {
+                    "Action": "Market buy",
+                    "Time": "2024-03-15 10:00:00",
+                    "ISIN": "US0378331005",
+                    "Ticker": "AAPL_US_EQ",
+                    "Name": "Apple Inc",
+                    "No. of shares": "10",
+                    "Price / share": "150.00",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "1380.00",
+                    "Currency (Total)": "EUR",
+                },
+            ],
+        )
 
         mock_client = MagicMock(spec=T212ApiClient)
         mock_client.get_instruments_extended.side_effect = RuntimeError("API error")
@@ -374,22 +453,37 @@ class TestHybridMode:
     def test_hybrid_uses_api_positions_for_balances(self, tmp_path):
         """Hybrid mode uses API current positions for backward synthesis."""
         csv_file = tmp_path / "transactions.csv"
-        write_csv(csv_file, [
-            {
-                "Action": "Market buy", "Time": "2023-06-01 10:00:00",
-                "ISIN": "US0378331005", "Ticker": "AAPL_US_EQ", "Name": "Apple Inc",
-                "No. of shares": "5", "Price / share": "150.00",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "690.00", "Currency (Total)": "EUR",
-            },
-            {
-                "Action": "Market buy", "Time": "2024-04-01 10:00:00",
-                "ISIN": "US0378331005", "Ticker": "AAPL_US_EQ", "Name": "Apple Inc",
-                "No. of shares": "3", "Price / share": "170.00",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.93",
-                "Total": "474.30", "Currency (Total)": "EUR",
-            },
-        ])
+        write_csv(
+            csv_file,
+            [
+                {
+                    "Action": "Market buy",
+                    "Time": "2023-06-01 10:00:00",
+                    "ISIN": "US0378331005",
+                    "Ticker": "AAPL_US_EQ",
+                    "Name": "Apple Inc",
+                    "No. of shares": "5",
+                    "Price / share": "150.00",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "690.00",
+                    "Currency (Total)": "EUR",
+                },
+                {
+                    "Action": "Market buy",
+                    "Time": "2024-04-01 10:00:00",
+                    "ISIN": "US0378331005",
+                    "Ticker": "AAPL_US_EQ",
+                    "Name": "Apple Inc",
+                    "No. of shares": "3",
+                    "Price / share": "170.00",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.93",
+                    "Total": "474.30",
+                    "Currency (Total)": "EUR",
+                },
+            ],
+        )
 
         mock_client = MagicMock(spec=T212ApiClient)
         mock_client.get_instruments_extended.return_value = (
@@ -420,12 +514,13 @@ class TestHybridMode:
         closing = next(s for s in balances if s.referenceDate == date(2025, 1, 1))
 
         assert opening.quantity == Decimal("5")  # backward synthesis from API anchor
-        assert closing.quantity == Decimal("8")   # 5 + 3
+        assert closing.quantity == Decimal("8")  # 5 + 3
 
 
 # ---------------------------------------------------------------------------
 # Ticker remapping (CSV short tickers → API qualified tickers)
 # ---------------------------------------------------------------------------
+
 
 class TestTickerRemapping:
     """CSV exports use short tickers (e.g. INTC), API uses qualified (INTC_US_EQ)."""
@@ -470,15 +565,24 @@ class TestTickerRemapping:
     def test_hybrid_remaps_csv_tickers_to_match_api_positions(self, tmp_path):
         """End-to-end: CSV short tickers are remapped so API positions match."""
         csv_file = tmp_path / "transactions.csv"
-        write_csv(csv_file, [
-            {
-                "Action": "Market buy", "Time": "2024-03-15 10:00:00",
-                "ISIN": "US4581401001", "Ticker": "INTC", "Name": "Intel Corp",
-                "No. of shares": "20", "Price / share": "40.00",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "736.00", "Currency (Total)": "EUR",
-            },
-        ])
+        write_csv(
+            csv_file,
+            [
+                {
+                    "Action": "Market buy",
+                    "Time": "2024-03-15 10:00:00",
+                    "ISIN": "US4581401001",
+                    "Ticker": "INTC",
+                    "Name": "Intel Corp",
+                    "No. of shares": "20",
+                    "Price / share": "40.00",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "736.00",
+                    "Currency (Total)": "EUR",
+                },
+            ],
+        )
 
         mock_client = MagicMock(spec=T212ApiClient)
         mock_client.get_instruments_extended.return_value = (
@@ -507,29 +611,45 @@ class TestTickerRemapping:
         opening = next(s for s in balances if s.referenceDate == date(2024, 1, 1))
         closing = next(s for s in balances if s.referenceDate == date(2025, 1, 1))
 
-        assert opening.quantity == Decimal("0")   # no shares before buy
+        assert opening.quantity == Decimal("0")  # no shares before buy
         assert closing.quantity == Decimal("20")  # bought 20
 
     def test_hybrid_remaps_dividends_too(self, tmp_path):
         """Dividend tickers are also remapped so they group with the correct security."""
         csv_file = tmp_path / "transactions.csv"
-        write_csv(csv_file, [
-            {
-                "Action": "Market buy", "Time": "2024-03-15 10:00:00",
-                "ISIN": "US4581401001", "Ticker": "INTC", "Name": "Intel Corp",
-                "No. of shares": "20", "Price / share": "40.00",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.92",
-                "Total": "736.00", "Currency (Total)": "EUR",
-            },
-            {
-                "Action": "Dividend", "Time": "2024-06-15 10:00:00",
-                "ISIN": "US4581401001", "Ticker": "INTC", "Name": "Intel Corp",
-                "No. of shares": "20", "Price / share": "0.125",
-                "Currency (Price / share)": "USD", "Exchange rate": "0.93",
-                "Total": "2.33", "Currency (Total)": "EUR",
-                "Withholding tax": "0.38", "Currency (Withholding tax)": "EUR",
-            },
-        ])
+        write_csv(
+            csv_file,
+            [
+                {
+                    "Action": "Market buy",
+                    "Time": "2024-03-15 10:00:00",
+                    "ISIN": "US4581401001",
+                    "Ticker": "INTC",
+                    "Name": "Intel Corp",
+                    "No. of shares": "20",
+                    "Price / share": "40.00",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.92",
+                    "Total": "736.00",
+                    "Currency (Total)": "EUR",
+                },
+                {
+                    "Action": "Dividend",
+                    "Time": "2024-06-15 10:00:00",
+                    "ISIN": "US4581401001",
+                    "Ticker": "INTC",
+                    "Name": "Intel Corp",
+                    "No. of shares": "20",
+                    "Price / share": "0.125",
+                    "Currency (Price / share)": "USD",
+                    "Exchange rate": "0.93",
+                    "Total": "2.33",
+                    "Currency (Total)": "EUR",
+                    "Withholding tax": "0.38",
+                    "Currency (Withholding tax)": "EUR",
+                },
+            ],
+        )
 
         mock_client = MagicMock(spec=T212ApiClient)
         mock_client.get_instruments_extended.return_value = (
@@ -563,6 +683,7 @@ class TestTickerRemapping:
 # ---------------------------------------------------------------------------
 # API-only import (end-to-end with mocked client)
 # ---------------------------------------------------------------------------
+
 
 class TestApiImportEndToEnd:
     """End-to-end test of _import_api() with mocked T212ApiClient."""
@@ -638,5 +759,8 @@ class TestApiImportEndToEnd:
         assert stmt.listOfSecurities.depot[0].security[0].securityCategory == "SHARE"
         # Should have a critical warning
         from opensteuerauszug.model.critical_warning import CriticalWarningCategory
-        other_warnings = [w for w in stmt.critical_warnings if w.category == CriticalWarningCategory.OTHER]
+
+        other_warnings = [
+            w for w in stmt.critical_warnings if w.category == CriticalWarningCategory.OTHER
+        ]
         assert len(other_warnings) >= 1

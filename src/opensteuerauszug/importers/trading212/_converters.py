@@ -1,10 +1,13 @@
 """T212-to-eCH-0196 converters for the Trading212 importer."""
+
 import logging
 from decimal import Decimal
 from typing import Dict, List, Optional, Tuple
 
 from opensteuerauszug.model.ech0196 import (
-    CurrencyId, SecurityCategory, SecurityPayment, SecurityStock,
+    SecurityCategory,
+    SecurityPayment,
+    SecurityStock,
 )
 
 from ._models import T212Dividend, T212Order
@@ -30,24 +33,24 @@ T212_TYPE_TO_ECH: Dict[str, SecurityCategory] = {
 _CRYPTO_TYPES = frozenset({"CRYPTO", "CRYPTOCURRENCY"})
 
 
-def _orders_to_mutation_stocks(
-    orders: List[T212Order], currency: str
-) -> List[SecurityStock]:
+def _orders_to_mutation_stocks(orders: List[T212Order], currency: str) -> List[SecurityStock]:
     """Convert a list of T212Order objects into SecurityStock mutation entries."""
     stocks = []
     for order in orders:
         # For BUY: positive quantity; for SELL: negative quantity
         qty = order.quantity if order.side == "BUY" else -order.quantity
-        stocks.append(SecurityStock(
-            referenceDate=order.filled_at,
-            mutation=True,
-            quotationType="PIECE",
-            quantity=qty,
-            balanceCurrency=CurrencyId(order.currency or currency),
-            name=f"{order.side} {order.ticker}",
-            unitPrice=order.price if order.price else None,
-            exchangeRate=order.fx_rate,
-        ))
+        stocks.append(
+            SecurityStock(
+                referenceDate=order.filled_at,
+                mutation=True,
+                quotationType="PIECE",
+                quantity=qty,
+                balanceCurrency=order.currency or currency,
+                name=f"{order.side} {order.ticker}",
+                unitPrice=order.price if order.price else None,
+                exchangeRate=order.fx_rate,
+            )
+        )
     return stocks
 
 
@@ -57,7 +60,7 @@ def _dividend_to_payment(div: T212Dividend, currency: str) -> SecurityPayment:
         paymentDate=div.paid_on,
         quotationType="PIECE",
         quantity=Decimal("0"),  # Not reported by T212; set to 0
-        amountCurrency=CurrencyId(div.instrument_currency or currency),
+        amountCurrency=div.instrument_currency or currency,
         amount=div.amount_account_currency,
         amountPerUnit=div.gross_per_share,
         exchangeRate=div.fx_rate,
@@ -121,7 +124,9 @@ def _remap_tickers_via_isin(
             if order.ticker != api_ticker:
                 logger.debug(
                     "Remapping order ticker %s → %s (ISIN %s)",
-                    order.ticker, api_ticker, order.isin,
+                    order.ticker,
+                    api_ticker,
+                    order.isin,
                 )
                 order.ticker = api_ticker
                 remapped += 1
@@ -131,7 +136,9 @@ def _remap_tickers_via_isin(
             if div.ticker != api_ticker:
                 logger.debug(
                     "Remapping dividend ticker %s → %s (ISIN %s)",
-                    div.ticker, api_ticker, div.isin,
+                    div.ticker,
+                    api_ticker,
+                    div.isin,
                 )
                 div.ticker = api_ticker
                 remapped += 1

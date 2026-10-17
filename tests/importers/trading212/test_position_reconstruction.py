@@ -1,21 +1,20 @@
 """Tests for position reconstruction: boundary balances, backward synthesis,
 arithmetic closing balance, and fully-sold ticker handling.
 """
+
 from datetime import date
 from decimal import Decimal
 
-import pytest
 
-from opensteuerauszug.importers.trading212._models import T212Order
 from opensteuerauszug.importers.trading212._converters import _orders_to_mutation_stocks
 from opensteuerauszug.importers.trading212.trading212_importer import Trading212Importer
 
 from .conftest import make_order, make_settings
 
-
 # ---------------------------------------------------------------------------
 # CSV mode: forward synthesis from zero
 # ---------------------------------------------------------------------------
+
 
 class TestPositionReconstruction:
     def test_boundary_balances_added(self):
@@ -28,7 +27,9 @@ class TestPositionReconstruction:
             account_settings_list=[settings],
         )
         mutation_stocks = _orders_to_mutation_stocks([order], "USD")
-        all_stocks = importer._add_boundary_balances("TEST", mutation_stocks, "USD", current_position=None)
+        all_stocks = importer._add_boundary_balances(
+            "TEST", mutation_stocks, "USD", current_position=None
+        )
         balances = [s for s in all_stocks if not s.mutation]
         # At minimum year-start (Jan 1) and year-end (Jan 1 next year)
         assert len(balances) >= 2
@@ -43,10 +44,11 @@ class TestPositionReconstruction:
             account_settings_list=[settings],
         )
         mutation_stocks = _orders_to_mutation_stocks([order], "USD")
-        all_stocks = importer._add_boundary_balances("TEST", mutation_stocks, "USD", current_position=None)
+        all_stocks = importer._add_boundary_balances(
+            "TEST", mutation_stocks, "USD", current_position=None
+        )
         start_balances = [
-            s for s in all_stocks
-            if not s.mutation and s.referenceDate == date(2024, 1, 1)
+            s for s in all_stocks if not s.mutation and s.referenceDate == date(2024, 1, 1)
         ]
         assert len(start_balances) == 1
         assert start_balances[0].quantity == Decimal("0")
@@ -62,10 +64,11 @@ class TestPositionReconstruction:
             account_settings_list=[settings],
         )
         mutation_stocks = _orders_to_mutation_stocks([prior_order, in_year_order], "USD")
-        all_stocks = importer._add_boundary_balances("TEST", mutation_stocks, "USD", current_position=None)
+        all_stocks = importer._add_boundary_balances(
+            "TEST", mutation_stocks, "USD", current_position=None
+        )
         start_balances = [
-            s for s in all_stocks
-            if not s.mutation and s.referenceDate == date(2024, 1, 1)
+            s for s in all_stocks if not s.mutation and s.referenceDate == date(2024, 1, 1)
         ]
         assert len(start_balances) == 1
         assert start_balances[0].quantity == Decimal("5")
@@ -74,6 +77,7 @@ class TestPositionReconstruction:
 # ---------------------------------------------------------------------------
 # Arithmetic closing balance
 # ---------------------------------------------------------------------------
+
 
 class TestArithmeticClosingBalance:
     def test_closing_equals_opening_plus_period_mutations(self):
@@ -89,19 +93,22 @@ class TestArithmeticClosingBalance:
             account_settings_list=[settings],
         )
         mutation_stocks = _orders_to_mutation_stocks([pre_order, in_order, sell_order], "USD")
-        all_stocks = importer._add_boundary_balances("TEST", mutation_stocks, "USD", current_position=None)
+        all_stocks = importer._add_boundary_balances(
+            "TEST", mutation_stocks, "USD", current_position=None
+        )
 
         balances = [s for s in all_stocks if not s.mutation]
         opening = next(s for s in balances if s.referenceDate == date(2024, 1, 1))
         closing = next(s for s in balances if s.referenceDate == date(2025, 1, 1))
 
-        assert opening.quantity == Decimal("5")   # pre-period buy
-        assert closing.quantity == Decimal("7")   # 5 + 3 - 1
+        assert opening.quantity == Decimal("5")  # pre-period buy
+        assert closing.quantity == Decimal("7")  # 5 + 3 - 1
 
 
 # ---------------------------------------------------------------------------
 # API/hybrid mode: backward synthesis from live position
 # ---------------------------------------------------------------------------
+
 
 class TestApiModeBoundaryBalances:
     def test_api_mode_uses_current_position_as_anchor(self):
@@ -151,9 +158,7 @@ class TestApiModeBoundaryBalances:
 
         # Full API orders: 2023 BUY + 2024 SELL (complete history)
         order_2024_sell = make_order(side="SELL", filled_at=date(2024, 3, 1), quantity="5")
-        recon_mutation_stocks = _orders_to_mutation_stocks(
-            [order_2023_buy, order_2024_sell], "USD"
-        )
+        recon_mutation_stocks = _orders_to_mutation_stocks([order_2023_buy, order_2024_sell], "USD")
 
         # Today: stock fully sold, position = 0
         current_position = {"ticker": "AAPL_US_EQ", "quantity": 0}
@@ -184,6 +189,7 @@ class TestApiModeBoundaryBalances:
 # Fully-sold tickers in hybrid/API mode (zero-anchor fix)
 # ---------------------------------------------------------------------------
 
+
 class TestFullySoldTickerHybridMode:
     """Tickers not in API current_positions should anchor at 0, not assume_zero."""
 
@@ -199,7 +205,10 @@ class TestFullySoldTickerHybridMode:
             account_settings_list=[settings],
         )
         stmt = importer._build_tax_statement(
-            [pre_buy, in_sell], [], current_positions=[], instrument_types={},
+            [pre_buy, in_sell],
+            [],
+            current_positions=[],
+            instrument_types={},
         )
 
         sec = stmt.listOfSecurities.depot[0].security[0]
@@ -221,7 +230,10 @@ class TestFullySoldTickerHybridMode:
             account_settings_list=[settings],
         )
         stmt = importer._build_tax_statement(
-            [sell_order], [], current_positions=[], instrument_types={},
+            [sell_order],
+            [],
+            current_positions=[],
+            instrument_types={},
         )
 
         sec = stmt.listOfSecurities.depot[0].security[0]
@@ -243,7 +255,9 @@ class TestFullySoldTickerHybridMode:
             account_settings_list=[settings],
         )
         stmt = importer._build_tax_statement(
-            [sell_order], [], current_positions=None,
+            [sell_order],
+            [],
+            current_positions=None,
         )
 
         sec = stmt.listOfSecurities.depot[0].security[0]

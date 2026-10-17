@@ -28,8 +28,6 @@ from .calculate.fill_in_tax_value_calculator import FillInTaxValueCalculator
 from .calculate.payment_reconciliation_calculator import PaymentReconciliationCalculator
 from .calculate.withholding_cap_calculator import WithholdingCapCalculator
 from .util.known_issues import is_known_issue
-from .importers.schwab.schwab_importer import SchwabImporter
-from .importers.ibkr.ibkr_importer import IbkrImporter # Added IbkrImporter
 from .importers.trading212.trading212_importer import Trading212Importer
 from .core.exchange_rate_provider import ExchangeRateProvider
 from .core.kursliste_manager import KurslisteManager
@@ -355,7 +353,9 @@ def process(
 
     try:
         if general_config_settings:
-            print(f"Loaded general configuration settings: canton={general_config_settings.canton}, full_name={general_config_settings.full_name}, language={general_config_settings.language}")
+            print(
+                f"Loaded general configuration settings: canton={general_config_settings.canton}, full_name={general_config_settings.full_name}, language={general_config_settings.language}"
+            )
     except Exception:
         # Non-fatal logging/print failure shouldn't stop execution
         pass
@@ -681,12 +681,18 @@ def process(
 
             elif importer_type == ImporterType.TRADING212:
                 if not parsed_period_from or not parsed_period_to:
-                    raise typer.BadParameter("--period-from and --period-to are required for the Trading212 importer.")
+                    raise typer.BadParameter(
+                        "--period-from and --period-to are required for the Trading212 importer."
+                    )
                 if not all_trading212_account_settings_models:
-                    print("Error: No valid Trading212 account configurations loaded. "
-                          "Check config.toml for a [brokers.trading212.accounts.<name>] section.")
+                    print(
+                        "Error: No valid Trading212 account configurations loaded. "
+                        "Check config.toml for a [brokers.trading212.accounts.<name>] section."
+                    )
                     raise typer.Exit(code=1)
-                print(f"Initializing Trading212Importer with {len(all_trading212_account_settings_models)} account configuration(s).")
+                print(
+                    f"Initializing Trading212Importer with {len(all_trading212_account_settings_models)} account configuration(s)."
+                )
                 t212_importer = Trading212Importer(
                     period_from=parsed_period_from,
                     period_to=parsed_period_to,

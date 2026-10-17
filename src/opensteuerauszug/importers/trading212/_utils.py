@@ -1,4 +1,5 @@
 """Generic ISIN utilities used by the Trading212 importer."""
+
 import logging
 import re
 from typing import Optional

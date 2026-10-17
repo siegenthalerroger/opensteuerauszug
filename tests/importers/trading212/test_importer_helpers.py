@@ -2,6 +2,7 @@
 type mapping, order/dividend conversion, ISIN validation, country extraction,
 model utilities, and importer init edge cases.
 """
+
 from datetime import date
 from decimal import Decimal
 
@@ -19,10 +20,10 @@ from opensteuerauszug.importers.trading212.trading212_importer import Trading212
 
 from .conftest import make_dividend, make_order, make_settings
 
-
 # ---------------------------------------------------------------------------
 # Security type mapping
 # ---------------------------------------------------------------------------
+
 
 class TestSecurityTypeMapping:
     def test_stock_maps_to_share(self):
@@ -48,6 +49,7 @@ class TestSecurityTypeMapping:
 # ---------------------------------------------------------------------------
 # Order → SecurityStock conversion
 # ---------------------------------------------------------------------------
+
 
 class TestOrderToMutationStocks:
     def test_buy_order_creates_positive_mutation(self):
@@ -80,6 +82,7 @@ class TestOrderToMutationStocks:
 # Dividend → SecurityPayment conversion
 # ---------------------------------------------------------------------------
 
+
 class TestDividendToPayment:
     def test_dividend_maps_to_payment(self):
         div = make_dividend(amount="12.50", paid_on=date(2024, 5, 16))
@@ -103,6 +106,7 @@ class TestDividendToPayment:
 # ISIN validation
 # ---------------------------------------------------------------------------
 
+
 class TestIsinValidation:
     def test_valid_isin_accepted(self):
         result = _validate_isin("US0378331005")
@@ -110,8 +114,8 @@ class TestIsinValidation:
 
     def test_invalid_isin_rejected(self):
         assert _validate_isin("INVALID") is None
-        assert _validate_isin("us0378331005") is None   # lowercase
-        assert _validate_isin("US037833100") is None    # too short
+        assert _validate_isin("us0378331005") is None  # lowercase
+        assert _validate_isin("US037833100") is None  # too short
 
     def test_none_isin_returns_none(self):
         assert _validate_isin(None) is None
@@ -134,6 +138,7 @@ class TestIsinValidation:
 # ---------------------------------------------------------------------------
 # Country extraction from ISIN
 # ---------------------------------------------------------------------------
+
 
 class TestCountryFromIsin:
     def test_us_isin_returns_us(self):
@@ -186,6 +191,7 @@ class TestCountryFromIsin:
 # Instrument type extraction (_extract_instrument_info)
 # ---------------------------------------------------------------------------
 
+
 class TestInstrumentTypeOverride:
     def test_extract_info_defaults_to_stock(self):
         _, _, sec_type, _ = _extract_instrument_info("AAPL_US_EQ", [], [])
@@ -205,7 +211,9 @@ class TestInstrumentTypeOverride:
             account_settings_list=[settings],
         )
         stmt = importer._build_tax_statement(
-            [order], [], current_positions=None,
+            [order],
+            [],
+            current_positions=None,
             instrument_types={"VWCE_EQ": "ETF"},
         )
         assert stmt.listOfSecurities is not None
@@ -222,7 +230,9 @@ class TestInstrumentTypeOverride:
             account_settings_list=[settings],
         )
         stmt = importer._build_tax_statement(
-            [order], [], current_positions=None,
+            [order],
+            [],
+            current_positions=None,
             instrument_types={"BTC_EQ": "CRYPTOCURRENCY"},
         )
         assert stmt.listOfSecurities is None
@@ -236,7 +246,9 @@ class TestInstrumentTypeOverride:
             account_settings_list=[settings],
         )
         stmt = importer._build_tax_statement(
-            [order], [], current_positions=None,
+            [order],
+            [],
+            current_positions=None,
             instrument_types={"BTC_EQ": "CRYPTOCURRENCY"},
         )
         assert stmt.listOfSecurities is not None
@@ -247,6 +259,7 @@ class TestInstrumentTypeOverride:
 # ---------------------------------------------------------------------------
 # Multi-ticker statement and dividend-only security
 # ---------------------------------------------------------------------------
+
 
 class TestMultiTickerStatement:
     """Multiple tickers should produce separate Security objects."""
@@ -308,6 +321,7 @@ class TestMultiTickerStatement:
 # Converter fallback tests
 # ---------------------------------------------------------------------------
 
+
 class TestConverterFallbacks:
     """Test fallback behavior when optional fields are None."""
 
@@ -352,6 +366,7 @@ class TestConverterFallbacks:
 # parse_t212_date unit tests
 # ---------------------------------------------------------------------------
 
+
 class TestParseT212Date:
     """Test date parsing utility."""
 
@@ -390,6 +405,7 @@ class TestParseT212Date:
 # ISIN edge cases
 # ---------------------------------------------------------------------------
 
+
 class TestIsinEdgeCases:
     """Additional ISIN validation and country extraction edge cases."""
 
@@ -410,6 +426,7 @@ class TestIsinEdgeCases:
 # ---------------------------------------------------------------------------
 # Importer init edge cases
 # ---------------------------------------------------------------------------
+
 
 class TestImporterInit:
     """Edge cases for Trading212Importer constructor."""

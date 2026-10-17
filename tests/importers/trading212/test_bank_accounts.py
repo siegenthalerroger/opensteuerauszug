@@ -1,8 +1,8 @@
 """Tests for _build_bank_accounts: interest/lending aggregation, cash_balances config."""
+
 from datetime import date
 from decimal import Decimal
 
-import pytest
 
 from opensteuerauszug.importers.trading212._models import T212CashTransaction
 from opensteuerauszug.importers.trading212.trading212_importer import Trading212Importer
@@ -26,7 +26,9 @@ class TestBankAccountCreation:
             period_to=date(2024, 12, 31),
             account_settings_list=[settings],
         )
-        stmt = importer._build_tax_statement([], [], current_positions=None, cash_transactions=cash_txs)
+        stmt = importer._build_tax_statement(
+            [], [], current_positions=None, cash_transactions=cash_txs
+        )
 
         assert stmt.listOfBankAccounts is not None
         accounts = stmt.listOfBankAccounts.bankAccount
@@ -54,7 +56,9 @@ class TestBankAccountCreation:
             period_to=date(2024, 12, 31),
             account_settings_list=[settings],
         )
-        stmt = importer._build_tax_statement([], [], current_positions=None, cash_transactions=cash_txs)
+        stmt = importer._build_tax_statement(
+            [], [], current_positions=None, cash_transactions=cash_txs
+        )
 
         chf_acct = stmt.listOfBankAccounts.bankAccount[0]
         assert len(chf_acct.payment) == 2
@@ -68,13 +72,17 @@ class TestBankAccountCreation:
         cash_txs = [
             T212CashTransaction(date(2024, 6, 1), "Interest on cash", Decimal("63.20"), "CHF"),
         ]
-        settings = make_settings(cash_balances={"CHF": Decimal("5000.00"), "USD": Decimal("100.00")})
+        settings = make_settings(
+            cash_balances={"CHF": Decimal("5000.00"), "USD": Decimal("100.00")}
+        )
         importer = Trading212Importer(
             period_from=date(2024, 1, 1),
             period_to=date(2024, 12, 31),
             account_settings_list=[settings],
         )
-        stmt = importer._build_tax_statement([], [], current_positions=None, cash_transactions=cash_txs)
+        stmt = importer._build_tax_statement(
+            [], [], current_positions=None, cash_transactions=cash_txs
+        )
 
         accounts = stmt.listOfBankAccounts.bankAccount
         chf_acct = next(a for a in accounts if a.bankAccountCurrency == "CHF")
@@ -99,7 +107,9 @@ class TestBankAccountCreation:
             period_to=date(2024, 12, 31),
             account_settings_list=[settings],
         )
-        stmt = importer._build_tax_statement([], [], current_positions=None, cash_transactions=cash_txs)
+        stmt = importer._build_tax_statement(
+            [], [], current_positions=None, cash_transactions=cash_txs
+        )
 
         chf_acct = stmt.listOfBankAccounts.bankAccount[0]
         assert chf_acct.taxValue is None
@@ -129,7 +139,9 @@ class TestBankAccountCreation:
             period_to=date(2024, 12, 31),
             account_settings_list=[settings],
         )
-        stmt = importer._build_tax_statement([], [], current_positions=None, cash_transactions=cash_txs)
+        stmt = importer._build_tax_statement(
+            [], [], current_positions=None, cash_transactions=cash_txs
+        )
 
         chf_acct = stmt.listOfBankAccounts.bankAccount[0]
         assert chf_acct.payment[0].amount == Decimal("2.00")  # Only in-period
@@ -145,7 +157,9 @@ class TestBankAccountCreation:
             period_to=date(2024, 12, 31),
             account_settings_list=[settings],
         )
-        stmt = importer._build_tax_statement([], [], current_positions=None, cash_transactions=cash_txs)
+        stmt = importer._build_tax_statement(
+            [], [], current_positions=None, cash_transactions=cash_txs
+        )
 
         acct = stmt.listOfBankAccounts.bankAccount[0]
         assert "CHF" in str(acct.bankAccountName)

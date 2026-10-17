@@ -1,8 +1,9 @@
 """Parser for Trading212 transaction CSV exports."""
+
 import csv
 import logging
 from decimal import Decimal, InvalidOperation
-from typing import Optional
+from typing import Optional, Sequence
 
 from ._models import T212CashTransaction, T212Dividend, T212Order, parse_t212_date
 
@@ -18,8 +19,11 @@ SPLIT_CLOSE_ACTIONS = {"Stock split close"}
 DIVIDEND_ACTION_PREFIX = "Dividend"
 CASH_INCOME_ACTIONS = {"Interest on cash", "Lending interest"}
 IGNORED_ACTIONS = {
-    "Deposit", "Withdrawal",
-    "Currency conversion", "Market order", "Spending cashback",
+    "Deposit",
+    "Withdrawal",
+    "Currency conversion",
+    "Market order",
+    "Spending cashback",
     # Cash adjustments (WHT refunds, interest reversals) — no ticker, not attributable
     "Result adjustment",
 }
@@ -99,12 +103,15 @@ class T212CsvParser:
 
         logger.info(
             "Parsed T212 CSV '%s': %d orders, %d dividends, %d cash transactions",
-            self._path, len(orders), len(dividends), len(cash_transactions),
+            self._path,
+            len(orders),
+            len(dividends),
+            len(cash_transactions),
         )
         return orders, dividends, cash_transactions
 
 
-def _build_column_map(fieldnames: list[str]) -> dict[str, str]:
+def _build_column_map(fieldnames: Sequence[str]) -> dict[str, str]:
     """Map raw CSV headers to internal field names."""
     result = {}
     for raw_header in fieldnames:
@@ -132,7 +139,6 @@ def _parse_decimal(value: Optional[str]) -> Optional[Decimal]:
         return None
 
 
-
 def _parse_order(action: str, row: dict, row_num: int, path: str) -> Optional[T212Order]:
     side = "BUY" if action in BUY_ACTIONS else "SELL"
     ticker = (row.get("ticker") or "").strip()
@@ -144,7 +150,9 @@ def _parse_order(action: str, row: dict, row_num: int, path: str) -> Optional[T2
         qty = _parse_decimal(row.get("quantity"))
         price = _parse_decimal(row.get("price"))
         if qty is None or price is None:
-            logger.warning("CSV row %d (%s): missing quantity or price for %s, skipping", row_num, path, ticker)
+            logger.warning(
+                "CSV row %d (%s): missing quantity or price for %s, skipping", row_num, path, ticker
+            )
             return None
         total_raw = _parse_decimal(row.get("total"))
         total = total_raw if total_raw is not None else Decimal("0")
@@ -161,7 +169,9 @@ def _parse_order(action: str, row: dict, row_num: int, path: str) -> Optional[T2
             total_account_currency=total,
         )
     except (ValueError, KeyError, TypeError, InvalidOperation) as exc:
-        logger.warning("CSV row %d (%s): error parsing order for %s: %s", row_num, path, ticker, exc)
+        logger.warning(
+            "CSV row %d (%s): error parsing order for %s: %s", row_num, path, ticker, exc
+        )
         return None
 
 
@@ -182,11 +192,15 @@ def _parse_dividend(row: dict, row_num: int, path: str) -> Optional[T212Dividend
             amount_account_currency=amount,
             gross_per_share=_parse_decimal(row.get("price")),  # "Price / share" = gross per share
             withholding_tax=_parse_decimal(row.get("withholding_tax")),
-            instrument_currency=(row.get("price_currency") or row.get("total_currency") or "").strip(),
+            instrument_currency=(
+                row.get("price_currency") or row.get("total_currency") or ""
+            ).strip(),
             fx_rate=_parse_decimal(row.get("fx_rate")),
         )
     except (ValueError, KeyError, TypeError, InvalidOperation) as exc:
-        logger.warning("CSV row %d (%s): error parsing dividend for %s: %s", row_num, path, ticker, exc)
+        logger.warning(
+            "CSV row %d (%s): error parsing dividend for %s: %s", row_num, path, ticker, exc
+        )
         return None
 
 
@@ -201,7 +215,12 @@ def _parse_split(action: str, row: dict, row_num: int, path: str) -> Optional[T2
         filled_at = parse_t212_date(row.get("time", ""))
         qty = _parse_decimal(row.get("quantity"))
         if qty is None:
-            logger.warning("CSV row %d (%s): missing quantity for stock split %s, skipping", row_num, path, ticker)
+            logger.warning(
+                "CSV row %d (%s): missing quantity for stock split %s, skipping",
+                row_num,
+                path,
+                ticker,
+            )
             return None
         return T212Order(
             filled_at=filled_at,
@@ -216,7 +235,9 @@ def _parse_split(action: str, row: dict, row_num: int, path: str) -> Optional[T2
             total_account_currency=Decimal("0"),
         )
     except (ValueError, KeyError, TypeError, InvalidOperation) as exc:
-        logger.warning("CSV row %d (%s): error parsing stock split for %s: %s", row_num, path, ticker, exc)
+        logger.warning(
+            "CSV row %d (%s): error parsing stock split for %s: %s", row_num, path, ticker, exc
+        )
         return None
 
 
@@ -231,7 +252,9 @@ def _parse_cash_transaction(
         if amount is None or not currency:
             logger.warning(
                 "CSV row %d (%s): missing amount or currency for '%s', skipping",
-                row_num, path, action,
+                row_num,
+                path,
+                action,
             )
             return None
         return T212CashTransaction(

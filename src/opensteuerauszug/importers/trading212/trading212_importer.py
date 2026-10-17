@@ -1,4 +1,5 @@
 """Trading212 importer: supports both live API mode and CSV file mode."""
+
 import logging
 from collections import defaultdict
 from datetime import date, timedelta
@@ -10,16 +11,30 @@ from opensteuerauszug.config.models import Trading212AccountSettings
 from opensteuerauszug.core.position_reconciler import PositionReconciler
 from opensteuerauszug.model.critical_warning import CriticalWarning, CriticalWarningCategory
 from opensteuerauszug.model.ech0196 import (
-    BankAccount, BankAccountName, BankAccountNumber, BankAccountPayment,
-    BankAccountTaxValue, Client, ClientNumber, CurrencyId, Depot, DepotNumber,
-    Institution, ListOfBankAccounts, ListOfSecurities, Security,
-    SecurityPayment, SecurityStock, TaxStatement,
+    BankAccount,
+    BankAccountName,
+    BankAccountNumber,
+    BankAccountPayment,
+    BankAccountTaxValue,
+    Client,
+    ClientNumber,
+    Depot,
+    DepotNumber,
+    Institution,
+    ListOfBankAccounts,
+    ListOfSecurities,
+    Security,
+    SecurityStock,
+    TaxStatement,
 )
 
 from ._converters import (
-    T212_TYPE_TO_ECH, _CRYPTO_TYPES,
-    _dividend_to_payment, _extract_instrument_info,
-    _orders_to_mutation_stocks, _remap_tickers_via_isin,
+    T212_TYPE_TO_ECH,
+    _CRYPTO_TYPES,
+    _dividend_to_payment,
+    _extract_instrument_info,
+    _orders_to_mutation_stocks,
+    _remap_tickers_via_isin,
 )
 from ._models import T212CashTransaction, T212Dividend, T212Order
 from ._utils import _country_from_isin, _validate_isin
@@ -84,9 +99,7 @@ class Trading212Importer:
         p = Path(input_path)
         if p.is_file():
             if self._settings and self._settings.api_key:
-                logger.info(
-                    "Trading212 hybrid mode (CSV + API): %s", input_path
-                )
+                logger.info("Trading212 hybrid mode (CSV + API): %s", input_path)
                 return self._import_hybrid(str(p))
             logger.info("Trading212 CSV mode: %s", input_path)
             return self._import_csv(str(p))
@@ -107,7 +120,9 @@ class Trading212Importer:
         parser = T212CsvParser(path)
         orders, dividends, cash_transactions = parser.parse()
         return self._build_tax_statement(
-            orders, dividends, current_positions=None,
+            orders,
+            dividends,
+            current_positions=None,
             cash_transactions=cash_transactions,
         )
 
@@ -120,7 +135,12 @@ class Trading212Importer:
         parser = T212CsvParser(csv_path)
         orders, dividends, cash_transactions = parser.parse()
 
-        client = T212ApiClient(self._settings.api_key, self._settings.api_secret, max_retries=self._settings.api_max_retries)
+        settings = self._settings
+        if settings is None or not settings.api_key:
+            raise ValueError("Hybrid mode requires 'api_key' in the Trading212 account settings.")
+        client = T212ApiClient(
+            settings.api_key, settings.api_secret, max_retries=settings.api_max_retries
+        )
 
         isin_to_api_ticker: Dict[str, str] = {}
         extra_warnings: List[CriticalWarning] = []
@@ -133,17 +153,19 @@ class Trading212Importer:
                 exc,
             )
             instrument_types = {}
-            extra_warnings.append(CriticalWarning(
-                category=CriticalWarningCategory.OTHER,
-                message=(
-                    f"Instrument type metadata could not be fetched from the Trading212 API ({exc}). "
-                    f"All securities will be reported as SHARE (stock). "
-                    f"ETFs, bonds, and other asset classes may be misclassified, "
-                    f"which can affect dividend and wealth-tax treatment. "
-                    f"Check your API key scopes (Instruments metadata) or switch to hybrid mode."
-                ),
-                source="Trading212Importer",
-            ))
+            extra_warnings.append(
+                CriticalWarning(
+                    category=CriticalWarningCategory.OTHER,
+                    message=(
+                        f"Instrument type metadata could not be fetched from the Trading212 API ({exc}). "
+                        f"All securities will be reported as SHARE (stock). "
+                        f"ETFs, bonds, and other asset classes may be misclassified, "
+                        f"which can affect dividend and wealth-tax treatment. "
+                        f"Check your API key scopes (Instruments metadata) or switch to hybrid mode."
+                    ),
+                    source="Trading212Importer",
+                )
+            )
 
         current_positions = client.get_current_positions()
 
@@ -164,16 +186,18 @@ class Trading212Importer:
                 "prior-year closing balances may be incorrect.",
                 exc,
             )
-            extra_warnings.append(CriticalWarning(
-                category=CriticalWarningCategory.OTHER,
-                message=(
-                    f"Full order history could not be fetched from the Trading212 API ({exc}). "
-                    f"Position synthesis will fall back to CSV transaction history only. "
-                    f"Opening and closing balances for years not fully covered by the CSV export "
-                    f"may be inaccurate."
-                ),
-                source="Trading212Importer",
-            ))
+            extra_warnings.append(
+                CriticalWarning(
+                    category=CriticalWarningCategory.OTHER,
+                    message=(
+                        f"Full order history could not be fetched from the Trading212 API ({exc}). "
+                        f"Position synthesis will fall back to CSV transaction history only. "
+                        f"Opening and closing balances for years not fully covered by the CSV export "
+                        f"may be inaccurate."
+                    ),
+                    source="Trading212Importer",
+                )
+            )
 
         # Remap CSV short tickers to API qualified tickers via ISIN so that
         # position lookups in _build_tax_statement match the API ticker format.
@@ -181,7 +205,10 @@ class Trading212Importer:
             _remap_tickers_via_isin(orders, dividends, isin_to_api_ticker)
 
         return self._build_tax_statement(
-            orders, dividends, current_positions, instrument_types=instrument_types,
+            orders,
+            dividends,
+            current_positions,
+            instrument_types=instrument_types,
             cash_transactions=cash_transactions,
             reconciliation_orders=api_all_orders,
             extra_warnings=extra_warnings,
@@ -198,13 +225,15 @@ class Trading212Importer:
                 "configuration. Add 'api_key = \"...\"' under "
                 "[brokers.trading212.accounts.<name>] in config.toml."
             )
-        client = T212ApiClient(self._settings.api_key, self._settings.api_secret, max_retries=self._settings.api_max_retries)
+        client = T212ApiClient(
+            self._settings.api_key,
+            self._settings.api_secret,
+            max_retries=self._settings.api_max_retries,
+        )
 
         logger.info("Fetching Trading212 account summary...")
         summary = client.get_account_summary()
-        logger.info(
-            "Account %s (%s)", summary.get("id", "?"), summary.get("currency", "?")
-        )
+        logger.info("Account %s (%s)", summary.get("id", "?"), summary.get("currency", "?"))
 
         # Instrument type metadata (STOCK, ETF, CRYPTOCURRENCY, …) — best-effort.
         extra_warnings: List[CriticalWarning] = []
@@ -217,24 +246,29 @@ class Trading212Importer:
                 exc,
             )
             instrument_types = {}
-            extra_warnings.append(CriticalWarning(
-                category=CriticalWarningCategory.OTHER,
-                message=(
-                    f"Instrument type metadata could not be fetched from the Trading212 API ({exc}). "
-                    f"All securities will be reported as SHARE (stock). "
-                    f"ETFs, bonds, and other asset classes may be misclassified, "
-                    f"which can affect dividend and wealth-tax treatment. "
-                    f"Check your API key scopes (Instruments metadata)."
-                ),
-                source="Trading212Importer",
-            ))
+            extra_warnings.append(
+                CriticalWarning(
+                    category=CriticalWarningCategory.OTHER,
+                    message=(
+                        f"Instrument type metadata could not be fetched from the Trading212 API ({exc}). "
+                        f"All securities will be reported as SHARE (stock). "
+                        f"ETFs, bonds, and other asset classes may be misclassified, "
+                        f"which can affect dividend and wealth-tax treatment. "
+                        f"Check your API key scopes (Instruments metadata)."
+                    ),
+                    source="Trading212Importer",
+                )
+            )
 
         orders = client.get_orders(stop_before=self.period_from)
         dividends = client.get_dividends(stop_before=self.period_from)
         current_positions = client.get_current_positions()
         # API mode has no cash transaction history; pass empty list.
         return self._build_tax_statement(
-            orders, dividends, current_positions, instrument_types=instrument_types,
+            orders,
+            dividends,
+            current_positions,
+            instrument_types=instrument_types,
             cash_transactions=[],
             extra_warnings=extra_warnings,
         )
@@ -326,7 +360,8 @@ class Trading212Importer:
         )
         list_of_securities = ListOfSecurities(depot=[depot]) if securities else None
         list_of_bank_accounts = self._build_bank_accounts(
-            cash_transactions or [], depot_id,
+            cash_transactions or [],
+            depot_id,
         )
         statement = TaxStatement(
             minorVersion=1,
@@ -395,9 +430,7 @@ class Trading212Importer:
         if recon_orders_by_ticker is not None:
             recon_ticker_orders = recon_orders_by_ticker.get(ticker, [])
             if recon_ticker_orders:
-                recon_mutation_stocks = _orders_to_mutation_stocks(
-                    recon_ticker_orders, currency
-                )
+                recon_mutation_stocks = _orders_to_mutation_stocks(recon_ticker_orders, currency)
 
         # Add boundary balances (year-start, year-end)
         all_stocks_with_boundaries = self._add_boundary_balances(
@@ -410,39 +443,43 @@ class Trading212Importer:
 
         for s in all_stocks_with_boundaries:
             if not s.mutation and s.quantity < 0:
-                warnings.append(CriticalWarning(
-                    category=CriticalWarningCategory.NEGATIVE_BALANCE,
-                    message=(
-                        f"Security {ticker} has a negative {s.name} of {s.quantity}. "
-                        f"The CSV export may be missing earlier BUY records "
-                        f"(e.g. a position acquired via a corporate action or warrant grant). "
-                        f"The reported balance may be incorrect."
-                    ),
-                    source="Trading212Importer",
-                    identifier=ticker,
-                ))
+                warnings.append(
+                    CriticalWarning(
+                        category=CriticalWarningCategory.NEGATIVE_BALANCE,
+                        message=(
+                            f"Security {ticker} has a negative {s.name} of {s.quantity}. "
+                            f"The CSV export may be missing earlier BUY records "
+                            f"(e.g. a position acquired via a corporate action or warrant grant). "
+                            f"The reported balance may be incorrect."
+                        ),
+                        source="Trading212Importer",
+                        identifier=ticker,
+                    )
+                )
 
         # Detect synthesis failure: orders exist but no boundary balances produced.
         has_boundaries = any(not s.mutation for s in all_stocks_with_boundaries)
         if not has_boundaries and ticker_orders:
-            warnings.append(CriticalWarning(
-                category=CriticalWarningCategory.OTHER,
-                message=(
-                    f"Opening and closing balances could not be synthesized for {ticker}. "
-                    f"The tax statement will not include opening/closing quantity balances "
-                    f"for this security, which may affect the wealth tax assessment (Vermögenssteuerwert). "
-                    f"Ensure the CSV export covers the full account history from inception, "
-                    f"or use hybrid mode for accurate position anchoring."
-                ),
-                source="Trading212Importer",
-                identifier=ticker,
-            ))
+            warnings.append(
+                CriticalWarning(
+                    category=CriticalWarningCategory.OTHER,
+                    message=(
+                        f"Opening and closing balances could not be synthesized for {ticker}. "
+                        f"The tax statement will not include opening/closing quantity balances "
+                        f"for this security, which may affect the wealth tax assessment (Vermögenssteuerwert). "
+                        f"Ensure the CSV export covers the full account history from inception, "
+                        f"or use hybrid mode for accurate position anchoring."
+                    ),
+                    source="Trading212Importer",
+                    identifier=ticker,
+                )
+            )
 
         # Filter: only keep mutations within the tax period for the output
         output_stocks = [
-            s for s in all_stocks_with_boundaries
-            if not s.mutation
-            or (self.period_from <= s.referenceDate <= self.period_to)
+            s
+            for s in all_stocks_with_boundaries
+            if not s.mutation or (self.period_from <= s.referenceDate <= self.period_to)
         ]
 
         if not output_stocks:
@@ -458,7 +495,7 @@ class Trading212Importer:
         sec = Security(
             positionId=position_id,
             country=_country_from_isin(isin) or country,
-            currency=CurrencyId(currency),
+            currency=currency,
             quotationType="PIECE",
             securityCategory=ech_category,
             securityName=name,
@@ -497,8 +534,7 @@ class Trading212Importer:
         # Use full-history mutations for reconciliation if available; fall back
         # to the CSV-derived mutations when not in hybrid mode.
         stocks_for_recon = (
-            recon_mutation_stocks if recon_mutation_stocks is not None
-            else all_mutation_stocks
+            recon_mutation_stocks if recon_mutation_stocks is not None else all_mutation_stocks
         )
         anchor_stocks = list(stocks_for_recon)
 
@@ -506,14 +542,16 @@ class Trading212Importer:
             # API/hybrid mode: add today's live position as a balance anchor
             qty_raw = current_position.get("quantity", 0)
             qty = Decimal(str(qty_raw)) if qty_raw else Decimal("0")
-            anchor_stocks.append(SecurityStock(
-                referenceDate=today,
-                mutation=False,
-                quotationType="PIECE",
-                quantity=qty,
-                balanceCurrency=CurrencyId(currency),
-                name=f"Current Position {today}",
-            ))
+            anchor_stocks.append(
+                SecurityStock(
+                    referenceDate=today,
+                    mutation=False,
+                    quotationType="PIECE",
+                    quantity=qty,
+                    balanceCurrency=currency,
+                    name=f"Current Position {today}",
+                )
+            )
 
         assume_zero = current_position is None  # CSV mode: no balance anchor
 
@@ -529,31 +567,36 @@ class Trading212Importer:
         result_stocks = list(all_mutation_stocks)
 
         if start_qty is not None:
-            result_stocks.append(SecurityStock(
-                referenceDate=self.period_from,
-                mutation=False,
-                quotationType="PIECE",
-                quantity=start_qty.quantity,
-                balanceCurrency=CurrencyId(currency),
-                name="Opening Balance",
-            ))
+            result_stocks.append(
+                SecurityStock(
+                    referenceDate=self.period_from,
+                    mutation=False,
+                    quotationType="PIECE",
+                    quantity=start_qty.quantity,
+                    balanceCurrency=currency,
+                    name="Opening Balance",
+                )
+            )
             # Compute year-end balance arithmetically:
             #   closing = opening + net mutations within [period_from, period_to]
             # This avoids a second PositionReconciler while producing the same result.
             period_net = sum(
-                s.quantity for s in all_mutation_stocks
+                s.quantity
+                for s in all_mutation_stocks
                 if self.period_from <= s.referenceDate <= self.period_to
             )
             closing_qty = start_qty.quantity + period_net
             end_date = self.period_to + timedelta(days=1)
-            result_stocks.append(SecurityStock(
-                referenceDate=end_date,
-                mutation=False,
-                quotationType="PIECE",
-                quantity=closing_qty,
-                balanceCurrency=CurrencyId(currency),
-                name="Closing Balance",
-            ))
+            result_stocks.append(
+                SecurityStock(
+                    referenceDate=end_date,
+                    mutation=False,
+                    quotationType="PIECE",
+                    quantity=closing_qty,
+                    balanceCurrency=currency,
+                    name="Closing Balance",
+                )
+            )
         else:
             # If the opening balance cannot be synthesized (e.g. no balance anchor and
             # no mutation history), the closing balance is also skipped — it cannot be
@@ -561,7 +604,8 @@ class Trading212Importer:
             logger.warning(
                 "Could not synthesize year-start position for %s on %s; "
                 "closing balance will also be omitted.",
-                ticker, self.period_from,
+                ticker,
+                self.period_from,
             )
 
         return result_stocks
@@ -584,7 +628,8 @@ class Trading212Importer:
 
         # Filter to tax period
         period_txs = [
-            tx for tx in cash_transactions
+            tx
+            for tx in cash_transactions
             if self.period_from <= tx.transaction_date <= self.period_to
         ]
 
@@ -609,22 +654,26 @@ class Trading212Importer:
             # Interest on cash
             interest_key = (currency, "Interest on cash")
             if interest_key in aggregated:
-                payments.append(BankAccountPayment(
-                    paymentDate=self.period_to,
-                    name="Interest on cash",
-                    amountCurrency=currency,
-                    amount=aggregated[interest_key],
-                ))
+                payments.append(
+                    BankAccountPayment(
+                        paymentDate=self.period_to,
+                        name="Interest on cash",
+                        amountCurrency=currency,
+                        amount=aggregated[interest_key],
+                    )
+                )
 
             # Lending interest
             lending_key = (currency, "Lending interest")
             if lending_key in aggregated:
-                payments.append(BankAccountPayment(
-                    paymentDate=self.period_to,
-                    name="Share lending interest",
-                    amountCurrency=currency,
-                    amount=aggregated[lending_key],
-                ))
+                payments.append(
+                    BankAccountPayment(
+                        paymentDate=self.period_to,
+                        name="Share lending interest",
+                        amountCurrency=currency,
+                        amount=aggregated[lending_key],
+                    )
+                )
 
             # Tax value (closing balance) from config
             tax_value = None
@@ -641,14 +690,16 @@ class Trading212Importer:
 
             account_name = f"{depot_id} {currency} cash"
             account_number = f"{depot_id}-{currency}"
-            bank_accounts.append(BankAccount(
-                bankAccountName=BankAccountName(account_name[:40]),
-                bankAccountNumber=BankAccountNumber(account_number[:32]),
-                bankAccountCountry="CY",  # Trading212 is Cyprus-based
-                bankAccountCurrency=CurrencyId(currency),
-                payment=sorted(payments, key=lambda p: p.paymentDate),
-                taxValue=tax_value,
-            ))
+            bank_accounts.append(
+                BankAccount(
+                    bankAccountName=BankAccountName(account_name[:40]),
+                    bankAccountNumber=BankAccountNumber(account_number[:32]),
+                    bankAccountCountry="CY",  # Trading212 is Cyprus-based
+                    bankAccountCurrency=currency,
+                    payment=sorted(payments, key=lambda p: p.paymentDate),
+                    taxValue=tax_value,
+                )
+            )
 
         if not bank_accounts:
             return None

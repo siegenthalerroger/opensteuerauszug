@@ -1,24 +1,34 @@
 """Shared fixtures and factory helpers for Trading212 importer tests."""
+
 import csv
 from datetime import date
 from decimal import Decimal
 from pathlib import Path
 
-import pytest
 
 from opensteuerauszug.config.models import Trading212AccountSettings
 from opensteuerauszug.importers.trading212._models import T212Dividend, T212Order
-
 
 # ---------------------------------------------------------------------------
 # CSV helper constants / functions
 # ---------------------------------------------------------------------------
 
 T212_CSV_HEADERS = [
-    "Action", "Time", "ISIN", "Ticker", "Name",
-    "No. of shares", "Price / share", "Currency (Price / share)",
-    "Exchange rate", "Total", "Currency (Total)",
-    "Withholding tax", "Currency (Withholding tax)", "Result", "Currency (Result)",
+    "Action",
+    "Time",
+    "ISIN",
+    "Ticker",
+    "Name",
+    "No. of shares",
+    "Price / share",
+    "Currency (Price / share)",
+    "Exchange rate",
+    "Total",
+    "Currency (Total)",
+    "Withholding tax",
+    "Currency (Withholding tax)",
+    "Result",
+    "Currency (Result)",
 ]
 
 
@@ -34,6 +44,7 @@ def write_csv(path: Path, rows: list[dict]) -> None:
 # ---------------------------------------------------------------------------
 # Object factories
 # ---------------------------------------------------------------------------
+
 
 def make_settings(**kwargs) -> Trading212AccountSettings:
     defaults = dict(

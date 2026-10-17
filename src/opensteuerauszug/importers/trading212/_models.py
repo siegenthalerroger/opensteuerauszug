@@ -1,4 +1,5 @@
 """Shared intermediate dataclasses and utilities for Trading212 data."""
+
 from dataclasses import dataclass
 from datetime import date
 from decimal import Decimal
@@ -20,6 +21,7 @@ def parse_t212_date(value: str) -> date:
 @dataclass
 class T212Order:
     """Represents a single filled buy or sell order from Trading212."""
+
     filled_at: date
     side: Literal["BUY", "SELL"]
     ticker: str
@@ -27,7 +29,7 @@ class T212Order:
     isin: Optional[str]
     quantity: Decimal
     price: Decimal
-    currency: str           # instrument/price currency
+    currency: str  # instrument/price currency
     fx_rate: Optional[Decimal]  # instrument currency → account currency
     total_account_currency: Decimal  # net value in account currency
 
@@ -35,8 +37,9 @@ class T212Order:
 @dataclass
 class T212CashTransaction:
     """Represents a cash-level transaction (interest, lending income)."""
+
     transaction_date: date
-    action: str          # e.g. "Interest on cash", "Lending interest"
+    action: str  # e.g. "Interest on cash", "Lending interest"
     amount: Decimal
     currency: str
 
@@ -44,6 +47,7 @@ class T212CashTransaction:
 @dataclass
 class T212Dividend:
     """Represents a dividend payment from Trading212."""
+
     paid_on: date
     ticker: str
     name: str

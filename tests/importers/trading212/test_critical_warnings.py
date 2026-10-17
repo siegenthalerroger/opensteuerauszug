@@ -1,8 +1,8 @@
 """Tests for CriticalWarning generation in the Trading212 importer."""
+
 from datetime import date
 from unittest.mock import MagicMock, patch
 
-import pytest
 
 from opensteuerauszug.importers.trading212.api_client import T212ApiClient
 from opensteuerauszug.importers.trading212.trading212_importer import Trading212Importer
@@ -28,7 +28,11 @@ class TestNegativeBalanceWarning:
         sell = make_order(side="SELL", filled_at=date(2024, 6, 1))
         stmt = importer._build_tax_statement([sell], [], current_positions=None)
 
-        neg = [w for w in stmt.critical_warnings if w.category == CriticalWarningCategory.NEGATIVE_BALANCE]
+        neg = [
+            w
+            for w in stmt.critical_warnings
+            if w.category == CriticalWarningCategory.NEGATIVE_BALANCE
+        ]
         assert neg, "Expected a NEGATIVE_BALANCE warning for a SELL with no prior BUY"
         assert neg[0].identifier == sell.ticker
 
@@ -38,9 +42,9 @@ class TestNegativeBalanceWarning:
         buy = make_order(side="BUY", filled_at=date(2024, 3, 1))
         stmt = importer._build_tax_statement([buy], [], current_positions=None)
 
-        assert not stmt.critical_warnings, (
-            f"Expected no warnings for a normal BUY, got: {stmt.critical_warnings}"
-        )
+        assert (
+            not stmt.critical_warnings
+        ), f"Expected no warnings for a normal BUY, got: {stmt.critical_warnings}"
 
 
 class TestExtraWarningsPassthrough:
@@ -119,6 +123,6 @@ class TestHybridModeApiFailures:
         stmt = self._run_hybrid(csv_path, mock_client)
 
         other = [w for w in stmt.critical_warnings if w.category == CriticalWarningCategory.OTHER]
-        assert len(other) >= 2, (
-            f"Expected at least 2 OTHER warnings when both API calls fail, got {len(other)}"
-        )
+        assert (
+            len(other) >= 2
+        ), f"Expected at least 2 OTHER warnings when both API calls fail, got {len(other)}"
