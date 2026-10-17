@@ -7,7 +7,7 @@ Unfortunately Schwab has put its real export data behind a developer only API wh
 
 ## Overview
 
-All data files should be downloaded in a single directory. The software will detect the file types automatically. You provide the directory on the commandline.
+All data files should be downloaded in a single directory without renaming (i.e., using the filenames that the website chooses). The software will detect the file types automatically. You provide the directory on the commandline.
 
 In general we are trying to obtain
    * At least one position statement (typically today), but more is better.
@@ -51,6 +51,7 @@ You will need to download data for your Brokerage accounts and any Equity Awards
     5.  Ensure you select the correct date range covering 
         * the entire tax year (e.g., January 1st to December 31st).
         * at least one, but ideally all of the dates you have position data for.
+    6. Do not rename the downloaded json file -- the importer depends on finding the partial account number in the filename.
 *   **Format Details for Developers**:
     *   The filename usually contains the last 3 digits of your account number (e.g., `Individual_XXX123_Transactions_YYYYMMDD-HHMMSS.json`). The importer uses these digits to associate the file with the correct account configured in `config.toml`.
     *   Key fields used: `Date`, `Action`, `Symbol`, `Description`, `Quantity`, `Amount`.
@@ -83,7 +84,9 @@ You will need to download data for your Brokerage accounts and any Equity Awards
 
 ### 2. Equity Awards Accounts (e.g., Stock Options, RSUs)
 
-This needs to be repeated for each equity in the equity awards account. These are treated as separate "depots" for the Steuerauszug.
+Some Schwab Equity Awards setups keep each award security in the awards area until it is sold or transferred. For those accounts, repeat the export for each equity in the equity awards account; the importer treats them as separate "depots" for the Steuerauszug.
+
+Other setups vest/lapse RSUs directly into the main brokerage/trading account. In that case the vested shares appear in the regular brokerage transactions, usually as `Stock Plan Activity`, and there is no separate end-of-year award position to import. You do not need to look for per-stock Equity Awards statement PDFs for those securities. The Equity Awards transaction export is also redundant for those vested shares, because the corresponding `Lapse` rows only describe the award-side release and the importer ignores them to avoid double counting the deposit in the brokerage account.
 
 **a) Transactions File (JSON)**
 
@@ -112,32 +115,32 @@ This needs to be repeated for each equity in the equity awards account. These ar
           ]
         }
         ```
-*   **End of year statements**: Schwab currently does not provide a machine-readable positions file for Equity Awards. However the PDF version of the final quarter statement is simple enough so the software can parse it. Please download the PDF and put it in the data directory. It has a header named `Account Statement` and a section with heading `Account Summary: SYMBOL`.  If this is insufficient, you may need to use the [Manual Positions Fallback CSV](#3-manual-positions-fallback-csv-optional).
+*   **End of year statements**: Schwab currently does not provide a machine-readable positions file for Equity Awards. If your awards remain in a separate awards depot at year end, download the PDF version of the final quarter statement and put it in the data directory. It has a header named `Account Statement` and a section with heading `Account Summary: SYMBOL`. If your RSUs vest directly into the main brokerage account, Schwab may not provide these per-stock awards PDFs; use the regular brokerage statement/transactions instead. If this is insufficient, you may need to use the [Manual Positions Fallback CSV](#3-manual-positions-fallback-csv-optional).
 
 ### 3. Manual Positions Fallback CSV (Optional)
 
 If you cannot obtain accurate position files, or if you need to provide initial balances or supplement data for accounts where automated extraction is difficult, or you would like to provide extra data points for the internal consistency check, you can use a manually created CSV file.
 
 *   **CSV Format**:
-    *   Must have a header row. Column order matters.
-    *   Case-insensitive headers (leading/trailing spaces ignored).
+    *   Must have a header row. Header order does not matter; matching is case-insensitive and ignores leading/trailing spaces.
+    *   **Required columns**: `Depot`, `Date`, `Symbol`, `Quantity`. An optional `Currency` column may be added (defaults to `USD` when absent or blank).
     *   **Columns**:
-        1.  `Depot`: Account identifier.
-            *   If "AWARDS" (case-insensitive), it's treated as an Equity Awards account.
-            *   If the last three characters are digits (e.g., "Schwab123"), "123" is used as the identifier.
-            *   Otherwise, the raw string is used (a warning may be logged).
-        2.  `Date`: Position date in `YYYY-MM-DD` format (e.g., `2023-12-31`). This represents the balance at the **beginning** of this day. For year-end 2023 positions, use `2024-01-01`. 
-        3.  `Symbol`: Ticker symbol. Use "CASH <account_id>" (e.g., "CASH 789") for cash positions. Bare "CASH" is no longer supported to allow for multiple cash accounts.
-        4.  `Quantity`: Number of shares/units or cash amount.
+        1.  `Depot`: Identifies which sub-account the row belongs to.
+            *   **All digits** (e.g. `178`): the last digits of a regular Schwab brokerage account number. Use just the trailing digits; the canonical Schwab depot ID is the last three (e.g. account ending in `...178` → `178`). The old `XXX178`-style masked format is also accepted.
+            *   **`AWARDS <SYMBOL>`** (e.g. `AWARDS GOOG`): an Equity Awards sub-account tied to that stock. Internally this maps to the `AWARDS` depot with the symbol as the sub-account identifier.
+        2.  `Date`: Position date in `YYYY-MM-DD` format. The quantity is the balance at the **start** of this day. For year-end 2023 positions, use `2024-01-01`.
+        3.  `Symbol`: Ticker symbol for security positions. Use `CASH` to declare a cash position. The legacy `CASH <id>` (with suffix) value is no longer accepted.
+        4.  `Quantity`: Number of shares/units for a security, or the cash amount for a cash position.
+        5.  `Currency` (optional): ISO currency code for the row. Defaults to `USD`.
 *   **Example CSV**:
     ```csv
-    Depot,Date,Symbol,Quantity
-    AWARDS,2024-01-01,AAPL,100.5
-    Schwab789,2024-01-01,CASH 789,5000.75
-    MyBroker123,2024-01-01,GOOG,20.0
+    Depot,Date,Symbol,Quantity,Currency
+    178,2024-01-01,AAPL,100.5,USD
+    178,2024-01-01,CASH,5000.75,USD
+    AWARDS GOOG,2024-01-01,GOOG,20.0,USD
+    AWARDS GOOG,2024-01-01,CASH,250.00,USD
     ```
-*   **Currency**: Currently defaults to "USD" for positions from this fallback CSV. All Cash is USD.
-*   **Usage**: Place this CSV file the data directory. Rows with errors will be skipped with a warning.
+*   **Usage**: Place this CSV file in the data directory. Rows with errors will be skipped with a logged warning.
 
 ### 4. Recommended: Human readable statements
 

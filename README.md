@@ -9,6 +9,7 @@ This goal is to eliminate tedious and error prone manual typing into the tax sof
 - the main focus is on getting core transaction and interest data.
 - These need to be verified by the user before submitting with the tax return
 - Tax values are computed best effort for informational purpose (the main Tax software should be able to compute it from the core transaction data.
+- The [standalone web app](docs/webapp.md)'s browser wizard is a separate, mostly AI-coded UI layer and has seen much less real-world testing than the Python/CLI version. Prefer the CLI if you can install it.
 
 For more information on required due diligence see the the user guide.
 
@@ -54,6 +55,10 @@ For now the focus is on brokers / banks that the author has
 
 - Charles Schwab (main trading account and Equity Awards)
 - Interactive Brokers
+
+Thanks to community contributions we also support
+
+- DEGIRO (contributed by [@manuelgr0](https://github.com/manuelgr0), with multilingual support by [@dalpozz](https://github.com/dalpozz) and [@VincentBlondeau](https://github.com/VincentBlondeau))
 - Trading212 (CSV export or live API)
 
 Additionally we can recalculate and verify any existing steuerauszug (this is mostly to increase confidence in the software itself)
@@ -69,6 +74,14 @@ Agentic browsers are getting very close just be able to do the above all by them
 The [EWV](https://www.ewv-ete.ch/de/ewv-ete/) and SSK publish a [shared set of tools](https://forum.mustachianpost.com/t/programmatic-tax-return/11908/69) that is even referenced in the spec. This used to available online, but is now locked down to a cabal of banks and tax officials. Inquiring minds however have noticed that the JAR is [included in nearly every offline official Tax software](https://mkiesel.ch/posts/swiss-tax-adventures-1/). It includes an official sample renderer for the PDF version given an XML file, so you could also use that instead of the python renderer. It will look a bit more official. I wasn't aware this existed and had to reconstruct from scratch as well as fix a lot of the python PDF417 libraries. The spec refers to the library as open source but non of these actually include the source.
 
 ## Installation
+
+### Standalone web app (no installation)
+
+OpenSteuerAuszug also runs as a **single HTML page in your browser** — open
+**<https://vroonhof.github.io/opensteuerauszug/>** and a wizard guides you
+through the steps (or save the page locally and open it from disk). Your
+financial data never leaves your computer. See the
+[web app guide](docs/webapp.md) for details.
 
 ### Quick install (recommended for users)
 
@@ -94,17 +107,14 @@ uv run --with git+https://github.com/vroonhof/opensteuerauszug.git opensteueraus
 
 Then continue with the [User Guide](docs/user_guide.md).
 
-### Development install [option 1] (contributors: using python venv)
+### Development install [option 1] (contributors: using uv)
 
 For development and tests, install from source:
 
 ```console
 git clone https://github.com/vroonhof/opensteuerauszug.git
 cd opensteuerauszug
-python3 -m venv .venv
-source .venv/bin/activate  # On Windows: .venv\Scripts\activate
-pip install -e ".[dev]"
-pip install git+https://github.com/vroonhof/pdf417decoder.git#subdirectory=python
+uv sync --locked --extra dev
 ```
 ### Development install [option 2] (contributors: using [pixi](https://pixi.prefix.dev/latest/))
 ```console
@@ -135,15 +145,10 @@ For detailed documentation on available scripts, including the Kursliste filteri
 
 ### Setup
 
-To set up the development environment (venv):
+To set up the locked development environment with uv:
 
 ```bash
-# Create and activate virtual environment
-python -m venv .venv
-source venv/bin/activate  # On Windows: venv\Scripts\activate
-
-# Install dependencies
-pip install -e ".[dev]"
+uv sync --locked --extra dev
 ```
 
 To set up the development environment (pixi):
@@ -155,7 +160,14 @@ To set up the development environment (pixi):
 ### Testing
 
 ```console
-pytest tests/
+uv run --locked --extra dev pytest tests/
+```
+
+To update all dependencies and regenerate both the uv-specific and standard
+PEP 751 lock files:
+
+```console
+./scripts/update_lockfiles.sh --upgrade
 ```
 
 If the environment variable `EXTRA_SAMPLE_DIR` points to a directory with XML files these are validated as part of a set of integration sets. See the [verify](docs/verify_existing.md) documentation for how to invoke that manually.
@@ -170,6 +182,10 @@ This project includes utility scripts for development and data management. For d
 This project exists in part for me to try out AI based coding outside of $WORKPLACE to try out various tools. As a result code quality and style is inconsistent and contains various AIisms. Code has been cleaned-up, reviewed and controlled by me where it matters.
 
 That said all mistakes, hallucinations etc are probably mine.
+
+The [standalone web app](docs/webapp.md) is a particularly heavy case: the browser-side
+wizard (`web/app_template.html` and its JS) is mostly AI-generated and has had far less
+real-world exercise than the core library and CLI. Treat it as more experimental.
 
 ## Related projects
 
@@ -188,6 +204,8 @@ That said all mistakes, hallucinations etc are probably mine.
 Many thanks to everyone who has tested this tool with their own data and contributed fixes and improvements.
 
 Special thanks to [@pet-zh](https://github.com/pet-zh), whose extensive real-world testing and numerous fixes have made the output significantly more polished and reliable.
+
+The DEGIRO importer is a community effort: contributed by [@manuelgr0](https://github.com/manuelgr0), with multilingual support by [@dalpozz](https://github.com/dalpozz) and improved French support plus test data by [@VincentBlondeau](https://github.com/VincentBlondeau).
 
 ## License
 

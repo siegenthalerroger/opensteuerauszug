@@ -32,6 +32,11 @@ If you prefer not to install the tool, `uv run --with git+https://github.com/vro
 also works for one-off commands.
 
 You can replace `ibkr` with `schwab`, `fidelity`, or `degiro` depending on your source data.
+
+Prefer not to install anything? Download the standalone web app (a single
+HTML file that runs entirely in your browser) and follow the on-screen
+wizard instead — see the [web app guide](webapp.md).
+
 The rest of this guide explains each step in detail.
 
 ## Short Primer on Tax data and calculations
@@ -224,7 +229,7 @@ Currently supported brokers and their specific guides:
 *   **[Charles Schwab](importer_schwab.md)**: For brokerage and equity award accounts.
 *   **[Interactive Brokers (IBKR)](importer_ibkr.md)**: For brokerage accounts.
 *   **[Fidelity Investments](importer_fidelity.md)**: For brokerage accounts.
-*   **[DEGIRO](importer_degiro.md)**: For brokerage accounts. *(experimental)*
+*   **[DEGIRO](importer_degiro.md)**: For brokerage accounts.
 
 Please refer to the documentation for your specific broker by clicking the links above to understand what files to download, their formats, and any specific configurations required in `config.toml`.
 
@@ -374,7 +379,7 @@ but because the author wisely decided to finish their tax return before embarkin
 * Recruit more testers fro real world data use.
 * Implement plausibility checks, in particular for tax withholding.
 * produce more automated test scenarios.
-* See if this can be deployed as a standalone web pages with WASM.
+* ~~See if this can be deployed as a standalone web pages with WASM.~~ Done — see the [web app guide](webapp.md).
 * Cleanup helper scripts and provide clean pipx executable package
 
 
